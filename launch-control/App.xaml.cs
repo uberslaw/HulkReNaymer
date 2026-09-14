@@ -18,6 +18,9 @@ public partial class App : Application
             "HulkReNaymer");
         Directory.CreateDirectory(Path.Combine(local, "logs"));
 
+        var releaseExe = LaunchActions.ExePath(root, "Release");
+        var debugExe = LaunchActions.ExePath(root, "Debug");
+
         LaunchControlApp.Run(this, new LaunchControlProfile
         {
             ProductId = "hulkrenaymer",
@@ -26,8 +29,8 @@ public partial class App : Application
             ServiceNames = [],
             ShowVenvUi = false,
             ShowBrowserButton = false,
-            ShowStartStopButtons = false,
-            ShowRestartButton = false,
+            ShowStartStopButtons = true,
+            ShowRestartButton = true,
             InstallRoot = root,
             LogPaths = [Path.Combine(roaming, "hulkrenaymer.log")],
             CrashLogPath = Path.Combine(local, "logs", "launch-control.log"),
@@ -36,23 +39,28 @@ public partial class App : Application
                 ["ChromeColor"] = "#10210F",
                 ["PrimaryActionColor"] = "#7CFF4C"
             },
-            MetaText = () => root,
-            FooterText = "Open this LC from Master Launch Control (Generic). Rebuild/Run/CLI live here; MLC Open launches the Release exe.",
+            MetaText = () => $"Release {releaseExe}   Debug {debugExe}",
+            FooterText = "Closing this window does not stop HulkReNaymer.",
             StartupNotes =
             [
-                "HulkReNaymer is a desktop app (no Windows service).",
-                "Rebuild Release / Debug compiles the repo. Run starts that exe. Open CLI drops a prompt at the repo with both bin folders on PATH.",
-                "From MLC: Add app or run scripts\\Register-HulkReNaymer-MLC.ps1, then Open Launch Control. MLC Open / Start uses the Release build."
+                "Closing this window does not stop HulkReNaymer.",
+                "Start / Stop / Restart control the Release exe. Rebuild Debug / Run Debug / Open CLI are extra actions below.",
+                "From Master Launch Control: Open Launch Control on the HulkReNaymer card (or run scripts\\Register-HulkReNaymer-MLC.ps1 once)."
             ],
-            ExtraActionLayout = new ExtraActionLayout
+            ProcessFallback = new ProcessFallbackSpec
             {
-                CompactGroups = ["Build", "Run"]
+                WorkingDirectory = () => LaunchActions.ExeDirectory(root, "Release"),
+                StartInfo = () => (releaseExe, ""),
+                DetachedGui = true,
+                FindRunningPids = () => LaunchActions.FindRunningPids(root),
+                LaunchNotes = () => File.Exists(releaseExe)
+                    ? []
+                    : [("Release exe is missing. Use Rebuild Release first.", "ERROR")]
             },
             ExtraActions =
             [
                 new("Rebuild Release", w => LaunchActions.Rebuild(w, root, "Release"), "Build"),
                 new("Rebuild Debug", w => LaunchActions.Rebuild(w, root, "Debug"), "Build"),
-                new("Run Release", w => LaunchActions.RunApp(w, root, "Release"), "Run"),
                 new("Run Debug", w => LaunchActions.RunApp(w, root, "Debug"), "Run"),
                 new("Open CLI", w => LaunchActions.OpenCli(w, root), "Run")
             ]

@@ -65,13 +65,13 @@ That creates a shortcut in `%AppData%\Microsoft\Windows\SendTo`. Right-click fil
 
 HulkReNaymer plugs into [Master Launch Control](https://github.com/uberslaw/master-launch-control) as a **Generic** app. The product LC is a C# host that references `LaunchControl.Standard` from that repo.
 
-Buttons on the LC (open it from an MLC card with **Open Launch Control**):
+The LC is the same `LaunchControl.Standard` chrome as Switcheroo (header, Theme…, status + PID, Start / Stop / Restart, Refresh, Follow logs, extra-action groups, event pane). HulkReNaymer has no Windows service, so Start/Stop drive the desktop exe.
 
 | Button | What it does |
 |--------|----------------|
-| **Rebuild Release** | `dotnet build HulkReNaymer.sln -c Release` (background) |
-| **Rebuild Debug** | `dotnet build HulkReNaymer.sln -c Debug` |
-| **Run Release** | Starts `src\HulkReNaymer.App\bin\Release\net8.0-windows\HulkReNaymer.exe` |
+| **Start** | Run Release (`src\HulkReNaymer.App\bin\Release\net8.0-windows\HulkReNaymer.exe`) |
+| **Stop** / **Restart** | Stop that process (and any Debug exe the LC can see), then Start again |
+| **Rebuild Release** / **Rebuild Debug** | `dotnet build HulkReNaymer.sln -c …` (background) |
 | **Run Debug** | Starts the Debug exe |
 | **Open CLI** | Opens `cmd.exe` at the repo root with both bin folders on `PATH`, so you can run `HulkReNaymer.exe file1 file2`, `dotnet test`, etc. |
 

@@ -31,6 +31,34 @@ static class LaunchActions
     public static string ExeDirectory(string root, string configuration) =>
         Path.GetDirectoryName(ExePath(root, configuration))!;
 
+    public static IReadOnlyList<int> FindRunningPids(string root)
+    {
+        var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ExePath(root, "Release"),
+            ExePath(root, "Debug")
+        };
+        var pids = new List<int>();
+        foreach (var proc in Process.GetProcessesByName("HulkReNaymer"))
+        {
+            try
+            {
+                var path = proc.MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(path) && targets.Contains(path))
+                    pids.Add(proc.Id);
+            }
+            catch
+            {
+                /* MainModule can throw for other sessions / bitness */
+            }
+            finally
+            {
+                proc.Dispose();
+            }
+        }
+        return pids;
+    }
+
     public static void Rebuild(LaunchControlWindow window, string root, string configuration) =>
         RunExclusive(window, $"Rebuild {configuration}", () =>
         {
