@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HulkReNaymer</title>
+  <link rel="icon" href="/static/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <img src="/static/favicon.svg" alt="" width="36" height="36" />
+        <div>
+          <h1>HulkReNaymer</h1>
+          <p>Bulk rename. Preview first. Smash after.</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button type="button" id="btn-seed" class="ghost">Load demo files</button>
+        <label class="toggle">
+          <input type="checkbox" id="theme-toggle" />
+          Light
+        </label>
+      </div>
+    </header>
+
+    <section class="pathbar">
+      <button type="button" id="btn-up" title="Parent folder">↑</button>
+      <input id="path" type="text" spellcheck="false" placeholder="Folder path" />
+      <button type="button" id="btn-browse">Open</button>
+      <label><input type="checkbox" id="recurse" /> Subfolders</label>
+      <label><input type="checkbox" id="include-files" checked /> Files</label>
+      <label><input type="checkbox" id="include-folders" /> Folders</label>
+      <input id="wildcard" type="text" value="*" title="Wildcard filter" />
+    </section>
+
+    <main class="workspace">
+      <aside class="tree-pane">
+        <div class="pane-title">Places</div>
+        <div id="roots" class="roots"></div>
+        <div class="pane-title">Folders</div>
+        <div id="tree" class="tree"></div>
+      </aside>
+      <section class="table-pane">
+        <div class="table-wrap">
+          <table id="files">
+            <thead>
+              <tr>
+                <th class="check"><input type="checkbox" id="select-all" checked /></th>
+                <th data-sort="name">Name</th>
+                <th data-sort="name">New name</th>
+                <th data-sort="ext">Ext</th>
+                <th data-sort="size">Size</th>
+                <th data-sort="modified">Modified</th>
+                <th data-sort="folder">Folder</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <section class="rules" id="rules">
+      <article class="rule" data-rule="regex">
+        <header><span>1</span> Regular expression</header>
+        <label class="on"><input type="checkbox" data-field="regex_enabled" /> Enable</label>
+        <input data-field="regex_pattern" placeholder="Match pattern" />
+        <input data-field="regex_replace" placeholder="Replace with (\1 or $1)" />
+        <select data-field="regex_apply_to">
+          <option value="name">Name</option>
+          <option value="ext">Extension</option>
+          <option value="both">Both</option>
+          <option value="full">Name + ext</option>
+        </select>
+      </article>
+
+      <article class="rule" data-rule="name">
+        <header><span>2</span> Name / extension</header>
+        <label class="on"><input type="checkbox" data-field="name_enabled" /> Enable</label>
+        <select data-field="name_mode">
+          <option value="keep">Keep name</option>
+          <option value="fixed">Fixed name</option>
+          <option value="remove">Remove name</option>
+        </select>
+        <input data-field="name_fixed" placeholder="New name / tokens" />
+        <select data-field="ext_mode">
+          <option value="keep">Keep ext</option>
+          <option value="fixed">Fixed ext</option>
+          <option value="remove">Remove ext</option>
+          <option value="lower">ext lower</option>
+          <option value="upper">EXT UPPER</option>
+        </select>
+        <input data-field="ext_fixed" placeholder="jpg" />
+      </article>
+
+      <article class="rule" data-rule="replace">
+        <header><span>3</span> Find / replace</header>
+        <label class="on"><input type="checkbox" data-field="replace_enabled" /> Enable</label>
+        <input data-field="find" placeholder="Find" />
+        <input data-field="replace_with" placeholder="Replace with (blank = delete)" />
+        <label><input type="checkbox" data-field="replace_all" checked /> All</label>
+        <label><input type="checkbox" data-field="replace_case_sensitive" checked /> Match case</label>
+      </article>
+
+      <article class="rule" data-rule="case">
+        <header><span>4</span> Case</header>
+        <select data-field="case_mode">
+          <option value="same">No change</option>
+          <option value="lower">lower case</option>
+          <option value="upper">UPPER CASE</option>
+          <option value="title">Title Case</option>
+          <option value="sentence">Sentence case</option>
+          <option value="toggle">tOGGLE</option>
+        </select>
+        <select data-field="case_apply_to">
+          <option value="name">Name</option>
+          <option value="ext">Extension</option>
+          <option value="both">Both</option>
+        </select>
+      </article>
+
+      <article class="rule" data-rule="remove">
+        <header><span>5</span> Remove</header>
+        <label class="on"><input type="checkbox" data-field="remove_enabled" /> Enable</label>
+        <div class="inline">
+          <label>First <input data-field="remove_first_n" type="number" min="0" value="0" /></label>
+          <label>Last <input data-field="remove_last_n" type="number" min="0" value="0" /></label>
+        </div>
+        <div class="inline">
+          <label>From <input data-field="remove_from" type="number" min="0" value="0" /></label>
+          <label>To <input data-field="remove_to" type="number" min="0" value="0" /></label>
+        </div>
+        <input data-field="remove_chars" placeholder="Strip these characters" />
+        <input data-field="remove_words" placeholder="Words to strip (comma-separated)" />
+        <div class="checks">
+          <label><input type="checkbox" data-field="remove_digits" /> Digits</label>
+          <label><input type="checkbox" data-field="remove_symbols" /> Symbols</label>
+          <label><input type="checkbox" data-field="collapse_spaces" /> Squeeze spaces</label>
+          <label><input type="checkbox" data-field="remove_trim" /> Trim</label>
+        </div>
+      </article>
+
+      <article class="rule" data-rule="move">
+        <header><span>6</span> Move / copy chars</header>
+        <label class="on"><input type="checkbox" data-field="move_enabled" /> Enable</label>
+        <label>From <input data-field="move_from" type="number" min="0" value="0" /></label>
+        <label>Count <input data-field="move_count" type="number" min="0" value="0" /></label>
+        <label>To <input data-field="move_to" type="number" min="0" value="0" /></label>
+        <label><input type="checkbox" data-field="move_copy" /> Copy instead of move</label>
+      </article>
+
+      <article class="rule" data-rule="add">
+        <header><span>7</span> Add text</header>
+        <label class="on"><input type="checkbox" data-field="add_enabled" /> Enable</label>
+        <input data-field="prefix" placeholder="Prefix  e.g. PROJECT123_" />
+        <input data-field="suffix" placeholder="Suffix  e.g. _Approved" />
+        <div class="inline">
+          <input data-field="insert" placeholder="Insert text" />
+          <label>At <input data-field="insert_at" type="number" min="0" value="0" /></label>
+        </div>
+        <p class="hint">Tokens: {name} {folder} {n} {date} {exif.date} {id3.artist}</p>
+      </article>
+
+      <article class="rule" data-rule="folder">
+        <header><span>8</span> Parent folder</header>
+        <label class="on"><input type="checkbox" data-field="folder_enabled" /> Enable</label>
+        <select data-field="folder_mode">
+          <option value="prefix">Prefix</option>
+          <option value="suffix">Suffix</option>
+        </select>
+        <input data-field="folder_separator" value="_" />
+      </article>
+
+      <article class="rule" data-rule="number">
+        <header><span>9</span> Numbering</header>
+        <label class="on"><input type="checkbox" data-field="numbering_enabled" /> Enable</label>
+        <div class="inline">
+          <label>Start <input data-field="number_start" type="number" value="1" /></label>
+          <label>Step <input data-field="number_increment" type="number" value="1" /></label>
+          <label>Pad <input data-field="number_pad" type="number" min="1" value="3" /></label>
+        </div>
+        <select data-field="number_position">
+          <option value="suffix">Suffix</option>
+          <option value="prefix">Prefix</option>
+          <option value="insert">Insert</option>
+          <option value="replace">Replace name</option>
+        </select>
+        <input data-field="number_separator" value="_" />
+        <label><input type="checkbox" data-field="number_reset_per_folder" /> Reset in each folder</label>
+      </article>
+
+      <article class="rule" data-rule="date">
+        <header><span>10</span> Date / time</header>
+        <label class="on"><input type="checkbox" data-field="date_enabled" /> Enable</label>
+        <select data-field="date_source">
+          <option value="modified">Modified</option>
+          <option value="created">Created</option>
+          <option value="accessed">Accessed</option>
+          <option value="now">Now</option>
+          <option value="exif">Photo EXIF</option>
+        </select>
+        <input data-field="date_format" value="%Y-%m-%d" />
+        <select data-field="date_position">
+          <option value="prefix">Prefix</option>
+          <option value="suffix">Suffix</option>
+        </select>
+        <input data-field="date_separator" value="_" />
+      </article>
+
+      <article class="rule" data-rule="js">
+        <header><span>11</span> JavaScript</header>
+        <label class="on"><input type="checkbox" data-field="js_enabled" /> Enable</label>
+        <textarea data-field="js_code" rows="4" placeholder="newName = name + '_' + index + '.' + ext;"></textarea>
+        <p class="hint">Assign newName. Vars: name, ext, index, folder, size, exif, id3</p>
+      </article>
+
+      <article class="rule" data-rule="list">
+        <header><span>12</span> Name list</header>
+        <textarea id="mapping-text" rows="4" placeholder="OldName01.pdf|NewName01.pdf"></textarea>
+        <button type="button" id="btn-mapping" class="ghost">Import list</button>
+        <label><input type="checkbox" data-field="mapping_exclusive" checked /> List replaces other rules</label>
+      </article>
+
+      <article class="rule" data-rule="filter">
+        <header><span>13</span> Filters</header>
+        <input data-scan="name_regex" placeholder="Name regex filter" />
+        <div class="inline">
+          <label>Min len <input data-scan="min_length" type="number" min="0" value="0" /></label>
+          <label>Max len <input data-scan="max_length" type="number" min="0" value="0" /></label>
+        </div>
+        <label><input type="checkbox" data-scan="include_hidden" /> Hidden files</label>
+      </article>
+
+      <article class="rule" data-rule="copy">
+        <header><span>14</span> Copy / move</header>
+        <select data-field="operation">
+          <option value="rename">Rename in place</option>
+          <option value="copy">Copy to folder</option>
+          <option value="move">Move to folder</option>
+        </select>
+        <input data-field="dest_dir" placeholder="Destination folder (absolute or relative)" />
+      </article>
+
+      <article class="rule" data-rule="time">
+        <header><span>15</span> Timestamps</header>
+        <label class="on"><input type="checkbox" data-field="set_timestamps" /> Set times</label>
+        <input data-field="ts_modified" placeholder="Modified ISO datetime" />
+        <input data-field="ts_accessed" placeholder="Accessed ISO datetime" />
+      </article>
+
+      <article class="rule" data-rule="attr">
+        <header><span>16</span> Attributes</header>
+        <label><input type="checkbox" data-field="set_readonly" /> Change read-only</label>
+        <label><input type="checkbox" data-field="readonly_value" /> Make read-only</label>
+        <label><input type="checkbox" data-field="windows_safe" checked /> Windows-safe names</label>
+      </article>
+    </section>
+
+    <footer class="statusbar">
+      <div id="stats" class="stats">Ready.</div>
+      <div class="presets">
+        <select id="preset">
+          <option value="">Presets…</option>
+          <option value="project">Project documents</option>
+          <option value="export">Strip export prefix</option>
+          <option value="photos">Photo date + sequence</option>
+          <option value="title-underscore">Title case + underscores</option>
+          <option value="folder">Prefix parent folder</option>
+          <option value="mp3">MP3 artist - title</option>
+        </select>
+        <select id="favorites">
+          <option value="">Favourites…</option>
+        </select>
+        <input id="fav-name" placeholder="Favourite name" />
+        <button type="button" id="btn-save-fav" class="ghost">Save</button>
+        <button type="button" id="btn-log" class="ghost">Log</button>
+      </div>
+      <div class="smash-group">
+        <button type="button" id="btn-reset" class="ghost">Reset rules</button>
+        <button type="button" id="btn-undo" class="ghost">Undo</button>
+        <button type="button" id="btn-rename" class="smash">Smash Rename</button>
+      </div>
+    </footer>
+  </div>
+
+  <dialog id="confirm-dialog">
+    <form method="dialog">
+      <h2>Commit rename?</h2>
+      <p id="confirm-text"></p>
+      <p class="warn">Only selected items with a green preview are changed. Undo is available afterwards.</p>
+      <menu>
+        <button value="cancel">Cancel</button>
+        <button id="confirm-go" value="ok" class="smash small">Rename now</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="log-dialog">
+    <form method="dialog">
+      <h2>Activity log</h2>
+      <pre id="log-text"></pre>
+      <menu><button value="ok">Close</button></menu>
+    </form>
+  </dialog>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
