@@ -32,13 +32,13 @@ Rules reset after a successful rename so the same prefix is not applied twice.
 2. Regular expression (`$1` groups work)
 3. Name / extension
 4. Find / replace
-5. Case
+5. Case (optional strip accents: é → e)
 6. Remove
-7. Move / copy characters
+7. Move / copy characters, or swap the two sides of a separator
 8. Add prefix, insert, suffix
 9. Parent folder
 10. Date (created / modified / accessed / now / photo EXIF)
-11. Numbering
+11. Numbering, or restyle the last number already in the name
 12. JavaScript (`newName = name + '_' + index`)
 13. Filters
 14. Copy / move to another folder
@@ -47,9 +47,11 @@ Rules reset after a successful rename so the same prefix is not applied twice.
 
 Tokens work in prefix, suffix, insert, fixed names, find/replace, regex replace, and the copy/move destination folder:
 
-`{name}` `{ext}` `{folder}` `{n}` `{n:3}` `{date}` `{date:exif}` `{yyyy}` `{mm}` `{dd}` `{exif.date}` `{id3.artist}` `{id3.album}` `{id3.title}` `{size}` `{git.branch}` `{hash:8}`
+`{name}` `{ext}` `{folder}` `{n}` `{n:3}` `{date}` `{date:exif}` `{yyyy}` `{mm}` `{dd}` `{exif.date}` `{exif.make}` `{exif.model}` `{exif.camera}` `{id3.artist}` `{id3.album}` `{id3.title}` `{size}` `{git.branch}` `{hash:8}`
 
 `{git.branch}` is the current branch when the file lives in a git repo. `{hash}` / `{hash:8}` is the SHA-256 of the file contents (first N hex characters).
+
+The WPF token palette inserts chips into the focused token box (prefix, suffix, insert, fixed name, replace, regex replace, destination).
 
 PowerRename-style aliases also work: `$YYYY` `$YY` `$MM` `$DD` `$mm` (minutes) `${}` `${n:3}` `${padding=3}`. Regex `$1` / `$2` groups are left alone.
 

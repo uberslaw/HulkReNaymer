@@ -70,6 +70,14 @@
       </Grid>
     </Border>
 
+    <Border DockPanel.Dock="Bottom" Background="{StaticResource Bg2Brush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="10,4">
+      <DockPanel>
+        <TextBlock Text="TOKENS" Foreground="{StaticResource MutedBrush}" FontSize="10" VerticalAlignment="Center" Margin="0,0,8,0" DockPanel.Dock="Left"/>
+        <TextBlock x:Name="TokenHint" Text="Focus a token box, then click a chip." Foreground="{StaticResource MutedBrush}" FontSize="10" VerticalAlignment="Center" DockPanel.Dock="Right" Margin="8,0,0,0"/>
+        <WrapPanel x:Name="TokenChips" VerticalAlignment="Center"/>
+      </DockPanel>
+    </Border>
+
     <ScrollViewer DockPanel.Dock="Bottom" MaxHeight="280" VerticalScrollBarVisibility="Auto" Background="{StaticResource Bg2Brush}">
       <UniformGrid x:Name="RulesHost" Columns="4" Margin="4">
         <Border Style="{StaticResource RuleCard}">
@@ -80,7 +88,7 @@
             </StackPanel>
             <CheckBox x:Name="RegexOn" Content="Enable"/>
             <TextBox x:Name="RegexPattern" Tag="hint" ToolTip="Match pattern"/>
-            <TextBox x:Name="RegexReplace" ToolTip="Replace with $1 groups, {name}, $YYYY, ${n:3}"/>
+            <TextBox x:Name="RegexReplace" Tag="token" ToolTip="Replace with $1 groups, {name}, $YYYY, ${n:3}"/>
             <ComboBox x:Name="RegexApplyTo" SelectedIndex="0">
               <ComboBoxItem Content="Name" Tag="name"/>
               <ComboBoxItem Content="Extension" Tag="ext"/>
@@ -101,7 +109,7 @@
               <ComboBoxItem Content="Fixed name" Tag="fixed"/>
               <ComboBoxItem Content="Remove name" Tag="remove"/>
             </ComboBox>
-            <TextBox x:Name="NameFixed" ToolTip="New name / tokens"/>
+            <TextBox x:Name="NameFixed" Tag="token" ToolTip="New name / tokens"/>
             <ComboBox x:Name="ExtMode" SelectedIndex="0">
               <ComboBoxItem Content="Keep ext" Tag="keep"/>
               <ComboBoxItem Content="Fixed ext" Tag="fixed"/>
@@ -109,7 +117,7 @@
               <ComboBoxItem Content="ext lower" Tag="lower"/>
               <ComboBoxItem Content="EXT UPPER" Tag="upper"/>
             </ComboBox>
-            <TextBox x:Name="ExtFixed"/>
+            <TextBox x:Name="ExtFixed" Tag="token"/>
           </StackPanel>
         </Border>
         <Border Style="{StaticResource RuleCard}">
@@ -120,7 +128,7 @@
             </StackPanel>
             <CheckBox x:Name="ReplaceOn" Content="Enable"/>
             <TextBox x:Name="FindBox" ToolTip="Find"/>
-            <TextBox x:Name="ReplaceWithBox" ToolTip="Replace with tokens: {name}, $YYYY, ${n:3} (blank = delete)"/>
+            <TextBox x:Name="ReplaceWithBox" Tag="token" ToolTip="Replace with tokens: {name}, $YYYY, ${n:3} (blank = delete)"/>
             <CheckBox x:Name="ReplaceAllBox" Content="All" IsChecked="True"/>
             <CheckBox x:Name="ReplaceCaseBox" Content="Match case" IsChecked="True"/>
           </StackPanel>
@@ -141,6 +149,7 @@
               <ComboBoxItem Content="kebab-case" Tag="kebab"/>
               <ComboBoxItem Content="URL slug" Tag="slug"/>
             </ComboBox>
+            <CheckBox x:Name="StripAccentsBox" Content="Strip accents (é → e)"/>
             <ComboBox x:Name="CaseApplyToBox" SelectedIndex="0">
               <ComboBoxItem Content="Name" Tag="name"/>
               <ComboBoxItem Content="Extension" Tag="ext"/>
@@ -179,6 +188,8 @@
             <TextBox x:Name="MoveCount" ToolTip="Count" Text="0"/>
             <TextBox x:Name="MoveTo" ToolTip="To" Text="0"/>
             <CheckBox x:Name="MoveCopy" Content="Copy instead of move"/>
+            <CheckBox x:Name="SwapOn" Content="Swap around separator"/>
+            <TextBox x:Name="SwapSep" Text=" - " ToolTip="Swap the two sides of this separator"/>
           </StackPanel>
         </Border>
         <Border Style="{StaticResource RuleCard}">
@@ -188,11 +199,11 @@
               <TextBlock Text="Add text" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </StackPanel>
             <CheckBox x:Name="AddOn" Content="Enable"/>
-            <TextBox x:Name="PrefixBox" ToolTip="Prefix  e.g. PROJECT123_"/>
-            <TextBox x:Name="SuffixBox" ToolTip="Suffix  e.g. _Approved"/>
+            <TextBox x:Name="PrefixBox" Tag="token" ToolTip="Prefix  e.g. PROJECT123_"/>
+            <TextBox x:Name="SuffixBox" Tag="token" ToolTip="Suffix  e.g. _Approved"/>
             <DockPanel>
               <TextBox x:Name="InsertAtBox" DockPanel.Dock="Right" Width="50" Text="0" ToolTip="At"/>
-              <TextBox x:Name="InsertBox" ToolTip="Insert text" Margin="0,0,6,0"/>
+              <TextBox x:Name="InsertBox" Tag="token" ToolTip="Insert text" Margin="0,0,6,0"/>
             </DockPanel>
             <TextBlock Text="Tokens: {name} {folder} {n} {date} {exif.date} {id3.artist} {git.branch} {hash:8}" Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap"/>
           </StackPanel>
@@ -231,6 +242,7 @@
             </ComboBox>
             <TextBox x:Name="NumberSep" Text="_"/>
             <CheckBox x:Name="NumberReset" Content="Reset in each folder"/>
+            <CheckBox x:Name="RenumberOn" Content="Restyle existing numbers"/>
           </StackPanel>
         </Border>
         <Border Style="{StaticResource RuleCard}">
@@ -298,7 +310,7 @@
               <ComboBoxItem Content="Copy to folder" Tag="copy"/>
               <ComboBoxItem Content="Move to folder" Tag="move"/>
             </ComboBox>
-            <TextBox x:Name="DestDirBox" ToolTip="Destination folder. Tokens work: {folder}, {yyyy}, $YYYY"/>
+            <TextBox x:Name="DestDirBox" Tag="token" ToolTip="Destination folder. Tokens work: {folder}, {yyyy}, $YYYY"/>
           </StackPanel>
         </Border>
         <Border Style="{StaticResource RuleCard}">

@@ -11,6 +11,7 @@ public static class RenameEngine
     static readonly Regex DigitRe = new(@"\d", RegexOptions.Compiled);
     static readonly Regex SymbolRe = new(@"[\p{P}\p{S}]", RegexOptions.Compiled);
     static readonly Regex LetterRe = new(@"\p{L}", RegexOptions.Compiled);
+    static readonly Regex LastNumberRe = new(@"(\d+)(?!.*\d)", RegexOptions.Compiled);
     static readonly NaturalStringComparer Natural = new();
 
     public static (string NewName, string Warning) ApplyRules(FileItem item, Rules rules, int sequence)
@@ -83,8 +84,14 @@ public static class RenameEngine
                 value => FindReplace(value, rules.Find, replaceWith, rules.ReplaceAll, rules.ReplaceCaseSensitive));
         }
 
+        if (rules.SwapEnabled && !string.IsNullOrEmpty(rules.SwapSeparator))
+            (stem, ext) = ApplyToParts(stem, ext, "name", value => SwapAround(value, rules.SwapSeparator));
+
         if (rules.CaseMode != "same")
             (stem, ext) = ApplyToParts(stem, ext, rules.CaseApplyTo, value => ApplyCase(value, rules.CaseMode));
+
+        if (rules.StripAccents)
+            (stem, ext) = ApplyToParts(stem, ext, rules.CaseApplyTo, StripAccents);
 
         if (rules.RemoveEnabled)
             stem = ApplyRemove(stem, rules);
@@ -111,6 +118,9 @@ public static class RenameEngine
             var stamp = Tokens.Expand("{date}", item, rules, sequence);
             stem = ApplyPosition(stem, stamp, rules.DatePosition, rules.DateSeparator);
         }
+
+        if (rules.RenumberEnabled)
+            stem = ReplaceLastNumber(stem, sequence.ToString().PadLeft(Math.Max(rules.NumberPad, 1), '0'));
 
         if (rules.NumberingEnabled)
         {
@@ -468,6 +478,40 @@ public static class RenameEngine
         while (start < end && sb[start] == '-') start++;
         while (end > start && sb[end - 1] == '-') end--;
         return start == 0 && end == sb.Length ? sb.ToString() : sb.ToString(start, end - start);
+    }
+
+    internal static string StripAccents(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        string normalized;
+        try { normalized = value.Normalize(NormalizationForm.FormD); }
+        catch { return value; }
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark)
+                continue;
+            sb.Append(c);
+        }
+        try { return sb.ToString().Normalize(NormalizationForm.FormC); }
+        catch { return sb.ToString(); }
+    }
+
+    internal static string SwapAround(string value, string separator)
+    {
+        if (string.IsNullOrEmpty(value) || string.IsNullOrEmpty(separator)) return value;
+        var index = value.IndexOf(separator, StringComparison.Ordinal);
+        if (index < 0) return value;
+        var left = value[..index];
+        var right = value[(index + separator.Length)..];
+        if (left.Length == 0 || right.Length == 0) return value;
+        return right + separator + left;
+    }
+
+    internal static string ReplaceLastNumber(string value, string number)
+    {
+        if (string.IsNullOrEmpty(value) || !LastNumberRe.IsMatch(value)) return value;
+        return LastNumberRe.Replace(value, number, 1);
     }
 
     static string TitleCaseManual(string value)

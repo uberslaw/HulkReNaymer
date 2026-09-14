@@ -42,6 +42,12 @@ public sealed class Rules
 
     public string CaseMode { get; set; } = "same";
     public string CaseApplyTo { get; set; } = "name";
+    public bool StripAccents { get; set; }
+
+    public bool SwapEnabled { get; set; }
+    public string SwapSeparator { get; set; } = " - ";
+
+    public bool RenumberEnabled { get; set; }
 
     public bool RemoveEnabled { get; set; }
     public int RemoveFirstN { get; set; }

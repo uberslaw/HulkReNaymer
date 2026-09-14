@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using HulkReNaymer;
 using HulkReNaymer.App.ViewModels;
 using Microsoft.Win32;
 
@@ -10,6 +11,7 @@ public partial class MainWindow : Window
 {
     readonly MainViewModel _vm = new();
     bool _suppress;
+    TextBox? _tokenTarget;
 
     public MainWindow()
     {
@@ -21,8 +23,10 @@ public partial class MainWindow : Window
         RulesHost.AddHandler(CheckBox.CheckedEvent, new RoutedEventHandler(OnRulesChanged));
         RulesHost.AddHandler(CheckBox.UncheckedEvent, new RoutedEventHandler(OnRulesChanged));
         RulesHost.AddHandler(ComboBox.SelectionChangedEvent, new SelectionChangedEventHandler(OnRulesChanged));
+        AddHandler(GotKeyboardFocusEvent, new KeyboardFocusChangedEventHandler(OnTokenFocus), true);
         Loaded += (_, _) =>
         {
+            BuildTokenChips();
             var extras = Environment.GetCommandLineArgs()
                 .Skip(1)
                 .Where(arg => !string.IsNullOrWhiteSpace(arg) && !arg.StartsWith('-'));
@@ -98,6 +102,51 @@ public partial class MainWindow : Window
         PushRules();
     }
 
+    void BuildTokenChips()
+    {
+        TokenChips.Children.Clear();
+        foreach (var spec in TokenCatalog.All)
+        {
+            var button = new Button
+            {
+                Content = spec.Token,
+                ToolTip = "Insert " + spec.Token + " into the focused token box",
+                Tag = spec.Token,
+                Style = (Style)FindResource("TokenChip")
+            };
+            button.Click += TokenChipClicked;
+            TokenChips.Children.Add(button);
+        }
+    }
+
+    void OnTokenFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (e.NewFocus is TextBox box && TokenCatalog.TargetBoxNames.Contains(box.Name))
+        {
+            _tokenTarget = box;
+            TokenHint.Text = "Insert into " + box.Name;
+        }
+    }
+
+    void TokenChipClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string token }) return;
+        var box = _tokenTarget;
+        if (box is null)
+        {
+            _vm.Stats = "Click a token-capable box (prefix, suffix, insert, name, replace, regex, dest), then a token.";
+            return;
+        }
+        box.Text = TokenCatalog.Insert(box.Text ?? "", box.CaretIndex, token, out var caret);
+        box.CaretIndex = caret;
+        box.Focus();
+        if (!_suppress)
+        {
+            PullRules();
+            _vm.Refresh();
+        }
+    }
+
     void ImportMappingClicked(object sender, RoutedEventArgs e)
     {
         _vm.MappingText = MappingBox.Text;
@@ -124,6 +173,10 @@ public partial class MainWindow : Window
         rules.ReplaceCaseSensitive = ReplaceCaseBox.IsChecked != false;
         rules.CaseMode = Combo(CaseModeBox);
         rules.CaseApplyTo = Combo(CaseApplyToBox);
+        rules.StripAccents = StripAccentsBox.IsChecked == true;
+        rules.SwapEnabled = SwapOn.IsChecked == true;
+        rules.SwapSeparator = SwapSep.Text;
+        rules.RenumberEnabled = RenumberOn.IsChecked == true;
         rules.RemoveEnabled = RemoveOn.IsChecked == true;
         rules.RemoveFirstN = Int(RemoveFirst.Text);
         rules.RemoveLastN = Int(RemoveLast.Text);
@@ -197,6 +250,10 @@ public partial class MainWindow : Window
             ReplaceCaseBox.IsChecked = rules.ReplaceCaseSensitive;
             SetCombo(CaseModeBox, rules.CaseMode);
             SetCombo(CaseApplyToBox, rules.CaseApplyTo);
+            StripAccentsBox.IsChecked = rules.StripAccents;
+            SwapOn.IsChecked = rules.SwapEnabled;
+            SwapSep.Text = string.IsNullOrEmpty(rules.SwapSeparator) ? " - " : rules.SwapSeparator;
+            RenumberOn.IsChecked = rules.RenumberEnabled;
             RemoveOn.IsChecked = rules.RemoveEnabled;
             RemoveFirst.Text = rules.RemoveFirstN.ToString();
             RemoveLast.Text = rules.RemoveLastN.ToString();

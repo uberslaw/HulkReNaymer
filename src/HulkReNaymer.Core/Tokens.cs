@@ -59,6 +59,11 @@ public static class Tokens
             ["exif.date"] = item.Exif.GetValueOrDefault("date", ""),
             ["exif.width"] = item.Exif.GetValueOrDefault("width", ""),
             ["exif.height"] = item.Exif.GetValueOrDefault("height", ""),
+            ["exif.make"] = item.Exif.GetValueOrDefault("make", ""),
+            ["exif.model"] = item.Exif.GetValueOrDefault("model", ""),
+            ["exif.camera"] = CameraName(item.Exif),
+            ["exif.iso"] = item.Exif.GetValueOrDefault("iso", ""),
+            ["exif.fnumber"] = item.Exif.GetValueOrDefault("fnumber", ""),
             ["id3.artist"] = item.Id3.GetValueOrDefault("artist", ""),
             ["id3.album"] = item.Id3.GetValueOrDefault("album", ""),
             ["id3.title"] = item.Id3.GetValueOrDefault("title", "")
@@ -144,6 +149,19 @@ public static class Tokens
         var converted = Names.ConvertDateFormat(format);
         try { return value.Value.ToString(converted, CultureInfo.InvariantCulture); }
         catch { return value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture); }
+    }
+
+    static string CameraName(Dictionary<string, string> exif)
+    {
+        if (exif.TryGetValue("camera", out var camera) && !string.IsNullOrWhiteSpace(camera))
+            return camera;
+        var make = exif.GetValueOrDefault("make", "").Trim();
+        var model = exif.GetValueOrDefault("model", "").Trim();
+        if (make.Length == 0) return model;
+        if (model.Length == 0) return make;
+        if (model.StartsWith(make, StringComparison.OrdinalIgnoreCase))
+            return model;
+        return (make + " " + model).Trim();
     }
 
     static string ContentHash(FileItem item, int width)

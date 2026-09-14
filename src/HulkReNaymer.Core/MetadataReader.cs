@@ -88,6 +88,12 @@ public static class MetadataReader
                     var date = sub.GetDescription(ExifDirectoryBase.TagDateTimeOriginal)
                                ?? sub.GetDescription(ExifDirectoryBase.TagDateTimeDigitized);
                     if (!string.IsNullOrEmpty(date)) data["date"] = date;
+                    var iso = sub.GetDescription(ExifDirectoryBase.TagIsoEquivalent);
+                    var fnumber = sub.GetDescription(ExifDirectoryBase.TagFNumber);
+                    var focal = sub.GetDescription(ExifDirectoryBase.TagFocalLength);
+                    if (!string.IsNullOrEmpty(iso)) data["iso"] = iso;
+                    if (!string.IsNullOrEmpty(fnumber)) data["fnumber"] = fnumber;
+                    if (!string.IsNullOrEmpty(focal)) data["focal"] = focal;
                 }
                 if (directory is ExifIfd0Directory ifd0)
                 {
