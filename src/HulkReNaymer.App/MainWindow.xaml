@@ -352,7 +352,7 @@
           <DataGridTextColumn Header="New name" Binding="{Binding NewName}" Width="*" IsReadOnly="True">
             <DataGridTextColumn.ElementStyle>
               <Style TargetType="TextBlock">
-                <Setter Property="Foreground" Value="{Binding NewNameBrush}"/>
+                <Setter Property="Foreground" Value="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=Item.NewNameBrush}"/>
               </Style>
             </DataGridTextColumn.ElementStyle>
           </DataGridTextColumn>

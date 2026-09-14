@@ -15,33 +15,30 @@ public static class RenameEngine
 
     public static (string NewName, string Warning) ApplyRules(FileItem item, Rules rules, int sequence)
     {
-        if (rules.Mapping.Count > 0)
+        if (rules.Mapping.Count > 0 && TryLookupMapping(rules.Mapping, item, out var mapped))
         {
-            if (rules.Mapping.TryGetValue(item.Name, out var mapped) || rules.Mapping.TryGetValue(item.Path, out mapped))
+            if (rules.MappingExclusive)
+                return (rules.WindowsSafe ? Names.WindowsSafeName(mapped) : mapped, "");
+            var (mappedStem, mappedExt) = Names.SplitName(mapped);
+            item = new FileItem
             {
-                if (rules.MappingExclusive)
-                    return (rules.WindowsSafe ? Names.WindowsSafeName(mapped) : mapped, "");
-                var (mappedStem, mappedExt) = Names.SplitName(mapped);
-                item = new FileItem
-                {
-                    Path = item.Path,
-                    Name = mapped,
-                    Stem = mappedStem,
-                    Ext = mappedExt,
-                    Folder = item.Folder,
-                    Parent = item.Parent,
-                    IsDir = item.IsDir,
-                    Size = item.Size,
-                    Created = item.Created,
-                    Modified = item.Modified,
-                    Accessed = item.Accessed,
-                    Depth = item.Depth,
-                    Selected = item.Selected,
-                    Exif = item.Exif,
-                    Id3 = item.Id3,
-                    Props = item.Props
-                };
-            }
+                Path = item.Path,
+                Name = mapped,
+                Stem = mappedStem,
+                Ext = mappedExt,
+                Folder = item.Folder,
+                Parent = item.Parent,
+                IsDir = item.IsDir,
+                Size = item.Size,
+                Created = item.Created,
+                Modified = item.Modified,
+                Accessed = item.Accessed,
+                Depth = item.Depth,
+                Selected = item.Selected,
+                Exif = item.Exif,
+                Id3 = item.Id3,
+                Props = item.Props
+            };
         }
 
         var stem = item.Stem;
@@ -458,16 +455,51 @@ public static class RenameEngine
         _ => item.Modified
     };
 
+    /// <summary>
+    /// Windows filenames are case-insensitive, so mapping keys must match regardless of the dictionary comparer.
+    /// Exact match still wins when a case-sensitive dictionary contains both "Photo.jpg" and "photo.jpg".
+    /// </summary>
+    internal static bool TryLookupMapping(IReadOnlyDictionary<string, string> mapping, FileItem item, out string mapped) =>
+        TryLookupMappingKey(mapping, item.Name, out mapped) || TryLookupMappingKey(mapping, item.Path, out mapped);
+
+    static bool TryLookupMappingKey(IReadOnlyDictionary<string, string> mapping, string key, out string mapped)
+    {
+        if (mapping.TryGetValue(key, out mapped!) && !string.IsNullOrWhiteSpace(mapped))
+            return true;
+        foreach (var pair in mapping)
+        {
+            if (string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(pair.Value))
+            {
+                mapped = pair.Value;
+                return true;
+            }
+        }
+        mapped = "";
+        return false;
+    }
+
     static DateTime? ParseExifDate(FileItem item)
     {
         if (!item.Exif.TryGetValue("date", out var raw) && !item.Exif.TryGetValue("DateTimeOriginal", out raw))
             return null;
-        string[] formats = ["yyyy:MM:dd HH:mm:ss", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd"];
+        string[] formats =
+        [
+            "yyyy:MM:dd HH:mm:ss",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd",
+            "dd/MM/yyyy HH:mm:ss",
+            "dd/MM/yyyy",
+            "MM/dd/yyyy HH:mm:ss",
+            "MM/dd/yyyy"
+        ];
         foreach (var fmt in formats)
         {
             if (DateTime.TryParseExact(raw, fmt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
                 return parsed;
         }
+        if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var fallback))
+            return fallback;
         return null;
     }
 

@@ -92,7 +92,7 @@ public sealed class Rules
     public bool JsEnabled { get; set; }
     public string JsCode { get; set; } = "";
 
-    public Dictionary<string, string> Mapping { get; set; } = new();
+    public Dictionary<string, string> Mapping { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool MappingExclusive { get; set; } = true;
 
     public bool WindowsSafe { get; set; } = true;
@@ -110,7 +110,7 @@ public sealed class Rules
     public Rules Clone()
     {
         var copy = (Rules)MemberwiseClone();
-        copy.Mapping = new Dictionary<string, string>(Mapping);
+        copy.Mapping = new Dictionary<string, string>(Mapping, StringComparer.OrdinalIgnoreCase);
         return copy;
     }
 }

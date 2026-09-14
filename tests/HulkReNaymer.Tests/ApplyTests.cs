@@ -9,6 +9,7 @@ public class ApplyTests
     {
         var mapping = FavoritesStore.ParseMapping("OldName01.pdf|NewName01.pdf\nOldName02.pdf,NewName02.pdf\n# comment\n");
         Assert.Equal("NewName01.pdf", mapping["OldName01.pdf"]);
+        Assert.Equal("NewName01.pdf", mapping["oldname01.pdf"]);
         Assert.Equal("NewName02.pdf", mapping["OldName02.pdf"]);
     }
 

@@ -4,7 +4,7 @@ namespace HulkReNaymer;
 
 public static class Scanner
 {
-    static readonly HashSet<string> SkipNames = [".git", ".svn", "node_modules", "__pycache__", ".vs", "bin", "obj"];
+    static readonly HashSet<string> SkipNames = [".git", ".svn", "node_modules", "__pycache__", ".vs"];
 
     public static (List<FileItem> Items, string Warning) Scan(
         string path,
@@ -57,19 +57,16 @@ public static class Scanner
 
         if (recurse)
         {
-            foreach (var dir in Directory.EnumerateDirectories(root, "*", SearchOption.AllDirectories).Prepend(root))
+            void Walk(string dir, int depth)
             {
-                int depth;
-                try { depth = Path.GetRelativePath(root, dir).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Count(p => p is not "." and not ""); }
-                catch { depth = 0; }
-                if (dir == root) depth = 0;
-                if (maxDepth > 0 && depth > maxDepth) continue;
+                if (items.Count >= maxFiles) return;
+                if (maxDepth > 0 && depth > maxDepth) return;
                 if (includeFolders && dir != root) Consider(dir, depth);
                 if (includeFiles)
                 {
                     IEnumerable<string> files;
                     try { files = Directory.EnumerateFiles(dir).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase); }
-                    catch { continue; }
+                    catch { files = []; }
                     foreach (var file in files)
                     {
                         Consider(file, depth);
@@ -79,9 +76,21 @@ public static class Scanner
                 if (items.Count >= maxFiles)
                 {
                     warning = $"Listing truncated at {maxFiles} items";
-                    break;
+                    return;
+                }
+                IEnumerable<string> children;
+                try { children = Directory.EnumerateDirectories(dir).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase); }
+                catch { return; }
+                foreach (var child in children)
+                {
+                    var name = Path.GetFileName(child);
+                    if (SkipNames.Contains(name)) continue;
+                    if (!includeHidden && name.StartsWith('.')) continue;
+                    Walk(child, depth + 1);
+                    if (items.Count >= maxFiles) return;
                 }
             }
+            Walk(root, 0);
         }
         else
         {

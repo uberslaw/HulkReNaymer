@@ -112,6 +112,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
         CurrentPath = System.IO.Path.GetFullPath(target);
+        Files.Clear();
         Folders.Clear();
         var parent = Directory.GetParent(CurrentPath);
         if (parent is not null)
@@ -140,13 +141,9 @@ public partial class MainViewModel : ObservableObject
             Wildcard,
             NameRegex,
             includeHidden: IncludeHidden);
+        var hadRows = Files.Count > 0;
         var selected = Files.Where(f => f.IsSelected).Select(f => f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var keepSelection = selected.Count > 0 && items.Any(i => selected.Contains(i.Path));
-        if (keepSelection)
-        {
-            foreach (var item in items)
-                item.Selected = selected.Contains(item.Path);
-        }
+        FileSelection.Apply(items, selected, hadRows);
         var rows = RenameEngine.BuildPreview(items, Rules);
         Files.Clear();
         foreach (var row in rows)

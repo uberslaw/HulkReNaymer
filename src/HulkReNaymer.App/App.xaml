@@ -4,7 +4,7 @@
              StartupUri="MainWindow.xaml">
   <Application.Resources>
     <ResourceDictionary>
-      <FontFamily x:Key="Bangers">pack://application:,,,/Assets/Bangers-Regular.ttf#Bangers</FontFamily>
+      <FontFamily x:Key="Bangers">pack://application:,,,/Assets/#Bangers</FontFamily>
       <SolidColorBrush x:Key="BgBrush" Color="#07110A"/>
       <SolidColorBrush x:Key="Bg2Brush" Color="#0C1A10"/>
       <SolidColorBrush x:Key="PanelBrush" Color="#122418"/>
