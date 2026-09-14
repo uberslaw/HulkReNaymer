@@ -18,3 +18,4 @@ demo_files/
 *.log
 .DS_Store
 *.nupkg
+artifacts/
