@@ -80,7 +80,7 @@ function writeRules(rules) {
   });
 }
 
-function resetRules() {
+function resetRules(opts = {}) {
   $$("[data-field]").forEach((el) => {
     if (el.type === "checkbox") {
       el.checked = el.dataset.field === "replace_all"
@@ -103,7 +103,7 @@ function resetRules() {
   });
   state.mapping = {};
   $("#mapping-text").value = "";
-  queuePreview();
+  if (opts.preview !== false) queuePreview();
 }
 
 function scanFields() {
@@ -349,9 +349,10 @@ function bind() {
     try {
       const data = await api("/api/rename", { method: "POST", body: JSON.stringify(payload) });
       $("#confirm-dialog").close();
-      $("#stats").textContent = data.message;
       state.selected = null;
+      resetRules({ preview: false });
       await preview();
+      $("#stats").textContent = `${data.message} · ${$("#stats").textContent}`;
     } catch (err) {
       $("#confirm-text").textContent = err.message;
     }
