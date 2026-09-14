@@ -32,6 +32,7 @@ class VendoredStandardTests(unittest.TestCase):
             'Include="LaunchControl.Standard\\LaunchControl.Standard.csproj"',
             text,
         )
+        self.assertIn(r'Compile Remove="LaunchControl.Standard\**"', text)
         self.assertNotIn(r"%USERPROFILE%\Projects\master-launch-control", text)
         self.assertNotIn("RequireLaunchControlStandard", text)
         self.assertNotIn("Clone https://github.com/uberslaw/master-launch-control", text)

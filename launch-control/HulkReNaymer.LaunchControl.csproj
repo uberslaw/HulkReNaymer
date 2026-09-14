@@ -24,7 +24,15 @@
     <MlcStandard Condition="'$(MlcStandard)' == '' and '$(MLC_ROOT)' != '' and Exists('$(MLC_ROOT)\$(MlcStandardRel)')">$(MLC_ROOT)\$(MlcStandardRel)</MlcStandard>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="LaunchControl.Standard\**" />
+    <Page Remove="LaunchControl.Standard\**" />
+    <EmbeddedResource Remove="LaunchControl.Standard\**" />
+    <None Remove="LaunchControl.Standard\**" />
+    <ApplicationDefinition Remove="LaunchControl.Standard\**" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="LaunchControl.Standard\LaunchControl.Standard.csproj" Condition="'$(MlcStandard)' == ''" />
     <ProjectReference Include="$(MlcStandard)" Condition="'$(MlcStandard)' != ''" />
   </ItemGroup>
 </Project>
+
