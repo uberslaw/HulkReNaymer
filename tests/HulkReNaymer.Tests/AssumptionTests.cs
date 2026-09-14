@@ -359,6 +359,8 @@ public class AssumptionTests
         Assert.Contains("<RuntimeIdentifier>win-x64</RuntimeIdentifier>", profile);
         Assert.Contains("<SelfContained>true</SelfContained>", profile);
         Assert.Contains("<PublishTrimmed>false</PublishTrimmed>", profile);
+        Assert.Contains("<DebugType>none</DebugType>", profile);
+        Assert.Contains("<DebugSymbols>false</DebugSymbols>", profile);
 
         var iss = File.ReadAllText(Path.Combine(root, "setup", "HulkReNaymer.iss"));
         Assert.Contains("LicenseFile=..\\LICENSE", iss);
@@ -373,6 +375,8 @@ public class AssumptionTests
         var script = File.ReadAllText(Path.Combine(root, "scripts", "build-windows.ps1"));
         Assert.Contains("-r win-x64", script);
         Assert.Contains("--self-contained true", script);
+        Assert.Contains("DebugType=none", script);
+        Assert.Contains("*.pdb", script);
         Assert.Contains("HulkReNaymer-Setup.exe", script);
         Assert.Contains("HulkReNaymer-portable-win-x64.zip", script);
     }

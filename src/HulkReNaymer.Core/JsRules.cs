@@ -8,7 +8,12 @@ public static class JsRules
     {
         try
         {
-            var engine = new Jint.Engine(options => options.TimeoutInterval(TimeSpan.FromMilliseconds(250)));
+            var engine = new Jint.Engine(options =>
+            {
+                options.TimeoutInterval(TimeSpan.FromMilliseconds(250));
+                options.MaxStatements(10_000);
+                options.LimitMemory(1_000_000);
+            });
             foreach (var (key, value) in context)
                 engine.SetValue(key, value ?? "");
             engine.Execute(code);

@@ -152,4 +152,22 @@ public class EngineTests
         var result = RenameEngine.ApplyRules(Item("Track01.txt"), new Rules { JsEnabled = true, JsCode = "newName = name + '_smash.' + ext;" }, 1);
         Assert.Equal("Track01_smash.txt", result.NewName);
     }
+
+    [Fact]
+    public void JavaScript_DoesNotExposeClrAndStopsRunawayLoops()
+    {
+        var clr = RenameEngine.ApplyRules(Item("Track01.txt"), new Rules
+        {
+            JsEnabled = true,
+            JsCode = "newName = (typeof System === 'undefined' ? 'safe' : 'leaked') + '.txt';"
+        }, 1);
+        Assert.Equal("safe.txt", clr.NewName);
+
+        var loop = RenameEngine.ApplyRules(Item("Track01.txt"), new Rules
+        {
+            JsEnabled = true,
+            JsCode = "while (true) {}"
+        }, 1);
+        Assert.False(string.IsNullOrEmpty(loop.Warning));
+    }
 }

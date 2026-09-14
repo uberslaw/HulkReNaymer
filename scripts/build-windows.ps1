@@ -66,6 +66,8 @@ dotnet publish $csproj `
     -p:PublishProfile=Win-x64 `
     -p:PublishTrimmed=false `
     -p:PublishSingleFile=false `
+    -p:DebugType=none `
+    -p:DebugSymbols=false `
     -p:Version=$version `
     -p:AssemblyVersion=$assemblyVersion `
     -p:FileVersion=$assemblyVersion `
@@ -73,6 +75,7 @@ dotnet publish $csproj `
     --nologo
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 
+Get-ChildItem -Path $publishDir -Filter *.pdb -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
 $exe = Join-Path $publishDir "HulkReNaymer.exe"
 if (-not (Test-Path $exe)) { throw "Publish did not produce HulkReNaymer.exe." }
 
