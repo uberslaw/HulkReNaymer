@@ -26,6 +26,8 @@ public static class TokenCatalog
         new("{id3.title}", "title"),
         new("{git.branch}", "branch"),
         new("{hash:8}", "hash"),
+        new("{video.date}", "vid date"),
+        new("{video.duration}", "vid len"),
         new("{size}", "size")
     ];
 

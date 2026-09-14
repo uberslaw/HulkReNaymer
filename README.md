@@ -47,9 +47,9 @@ Rules reset after a successful rename so the same prefix is not applied twice.
 
 Tokens work in prefix, suffix, insert, fixed names, find/replace, regex replace, and the copy/move destination folder:
 
-`{name}` `{ext}` `{folder}` `{n}` `{n:3}` `{date}` `{date:exif}` `{yyyy}` `{mm}` `{dd}` `{exif.date}` `{exif.make}` `{exif.model}` `{exif.camera}` `{id3.artist}` `{id3.album}` `{id3.title}` `{size}` `{git.branch}` `{hash:8}`
+`{name}` `{ext}` `{folder}` `{n}` `{n:3}` `{date}` `{date:exif}` `{yyyy}` `{mm}` `{dd}` `{exif.date}` `{exif.make}` `{exif.model}` `{exif.camera}` `{id3.artist}` `{id3.album}` `{id3.title}` `{size}` `{git.branch}` `{hash:8}` `{video.date}` `{video.duration}`
 
-`{git.branch}` is the current branch when the file lives in a git repo. `{hash}` / `{hash:8}` is the SHA-256 of the file contents (first N hex characters).
+`{git.branch}` is the current branch when the file lives in a git repo. `{hash}` / `{hash:8}` is the SHA-256 of the file contents (first N hex characters). `{video.date}` / `{video.duration}` come from TagLib when the file is a readable video; if `exiftool` is on `PATH` or `HULKRENAYMER_EXIFTOOL` points at `exiftool.exe`, richer tags are merged. ExifTool is never required.
 
 The WPF token palette inserts chips into the focused token box (prefix, suffix, insert, fixed name, replace, regex replace, destination).
 
@@ -66,6 +66,13 @@ The installer can add **HulkReNaymer** to the Explorer **Send to** menu. For a p
 ```
 
 That creates a shortcut in `%AppData%\Microsoft\Windows\SendTo`. Right-click files → Send to → HulkReNaymer. Use `-Remove` to delete the shortcut.
+
+An optional **Explorer context menu** verb (`Rename with HulkReNaymer`) can be added from the installer (unchecked by default) or, for a portable build, with a per-user HKCU verb (no startup/Run-key persistence):
+
+```powershell
+./scripts/install-context-menu.ps1 -ExePath C:\path\to\HulkReNaymer.exe
+./scripts/install-context-menu.ps1 -Remove
+```
 
 ## CLI
 
@@ -109,6 +116,7 @@ Tag a version (`v1.0.0`) and push it to trigger the release workflow.
 - `tests/HulkReNaymer.Tests` — engine, CLI, git-mv, and rename/undo tests
 - `scripts/build-windows.ps1` — release publish + zip + installer
 - `scripts/install-sendto.ps1` — add or remove the Explorer Send To shortcut
+- `scripts/install-context-menu.ps1` — optional per-user Explorer verb (files + folders)
 - `setup/HulkReNaymer.iss` — Inno Setup script
 - `docs/Bulk_Rename_Utility_Guide.md` — the capability guide this app implements
 

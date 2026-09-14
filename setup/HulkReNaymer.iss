@@ -30,7 +30,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
-ChangesAssociations=no
+ChangesAssociations=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -38,6 +38,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "sendto"; Description: "Add HulkReNaymer to the Explorer Send To menu"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "contextmenu"; Description: "Add Explorer context menu (Rename with HulkReNaymer)"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
 Source: "..\artifacts\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -46,6 +47,18 @@ Source: "..\artifacts\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubd
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 Name: "{userappdata}\Microsoft\Windows\SendTo\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: sendto
+
+[Registry]
+; Optional Explorer verb (files + folders). Uninstall removes the keys. No Run/startup persistence.
+Root: HKCR; Subkey: "*\shell\HulkReNaymer"; ValueType: string; ValueName: ""; ValueData: "Rename with HulkReNaymer"; Flags: uninsdeletekey; Tasks: contextmenu
+Root: HKCR; Subkey: "*\shell\HulkReNaymer"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName}"; Tasks: contextmenu
+Root: HKCR; Subkey: "*\shell\HulkReNaymer\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Tasks: contextmenu
+Root: HKCR; Subkey: "Directory\shell\HulkReNaymer"; ValueType: string; ValueName: ""; ValueData: "Rename with HulkReNaymer"; Flags: uninsdeletekey; Tasks: contextmenu
+Root: HKCR; Subkey: "Directory\shell\HulkReNaymer"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName}"; Tasks: contextmenu
+Root: HKCR; Subkey: "Directory\shell\HulkReNaymer\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Tasks: contextmenu
+Root: HKCR; Subkey: "Directory\Background\shell\HulkReNaymer"; ValueType: string; ValueName: ""; ValueData: "Rename with HulkReNaymer"; Flags: uninsdeletekey; Tasks: contextmenu
+Root: HKCR; Subkey: "Directory\Background\shell\HulkReNaymer"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName}"; Tasks: contextmenu
+Root: HKCR; Subkey: "Directory\Background\shell\HulkReNaymer\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%V"""; Tasks: contextmenu
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

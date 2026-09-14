@@ -66,7 +66,11 @@ public static class Tokens
             ["exif.fnumber"] = item.Exif.GetValueOrDefault("fnumber", ""),
             ["id3.artist"] = item.Id3.GetValueOrDefault("artist", ""),
             ["id3.album"] = item.Id3.GetValueOrDefault("album", ""),
-            ["id3.title"] = item.Id3.GetValueOrDefault("title", "")
+            ["id3.title"] = item.Id3.GetValueOrDefault("title", ""),
+            ["video.duration"] = item.Props.GetValueOrDefault("video.duration", ""),
+            ["video.date"] = item.Props.GetValueOrDefault("video.date", ""),
+            ["video.width"] = item.Props.GetValueOrDefault("video.width", ""),
+            ["video.height"] = item.Props.GetValueOrDefault("video.height", "")
         };
 
         return BraceRe.Replace(template, match =>

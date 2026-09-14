@@ -107,6 +107,14 @@ public static class MetadataReader
             }
         }
         catch { /* ignore */ }
+        if (ExifToolReader.ExplicitlyConfigured)
+        {
+            foreach (var (key, value) in ExifToolReader.Read(path))
+            {
+                if (!string.IsNullOrWhiteSpace(value) && !data.ContainsKey(key))
+                    data[key] = value;
+            }
+        }
         return data;
     }
 
@@ -133,18 +141,20 @@ public static class MetadataReader
 
     static Dictionary<string, string> ReadProps(string path)
     {
+        var data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var ext = Path.GetExtension(path).ToLowerInvariant();
-        if (ext is not ".jpg" and not ".jpeg" and not ".png" and not ".gif" and not ".webp" and not ".bmp" and not ".tif" and not ".tiff")
-            return [];
-        try
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp" or ".tif" or ".tiff")
         {
-            using var image = Image.Load(path);
-            return new Dictionary<string, string>
+            try
             {
-                ["width"] = image.Width.ToString(),
-                ["height"] = image.Height.ToString()
-            };
+                using var image = Image.Load(path);
+                data["width"] = image.Width.ToString();
+                data["height"] = image.Height.ToString();
+            }
+            catch { /* ignore */ }
         }
-        catch { return []; }
+        foreach (var (key, value) in VideoMetadata.Read(path))
+            data[key] = value;
+        return data;
     }
 }
