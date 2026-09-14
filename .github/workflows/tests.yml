@@ -6,15 +6,20 @@ on:
   pull_request:
 
 jobs:
-  pytest:
+  engine:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-dotnet@v4
         with:
-          python-version: "3.12"
-      - uses: actions/setup-node@v4
+          dotnet-version: "8.0.x"
+      - run: dotnet test tests/HulkReNaymer.Tests/HulkReNaymer.Tests.csproj --nologo
+
+  wpf:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          node-version: "20"
-      - run: pip install -e ".[dev]"
-      - run: pytest
+          dotnet-version: "8.0.x"
+      - run: dotnet build src/HulkReNaymer.App/HulkReNaymer.App.csproj -c Release --nologo

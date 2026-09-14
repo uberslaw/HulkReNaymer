@@ -1,68 +1,44 @@
 # HulkReNaymer
 
-Bulk rename files and folders with a live **old name / new name** preview, then commit the change in one shot.
+A **Windows WPF** bulk rename app. Same Hulk gamma-green look, now as a real .NET desktop program: browse a folder, stack rules, preview old vs new names, then smash rename.
 
-HulkReNaymer is a local web app (plus a CLI) inspired by the Bulk Rename Utility workflow: browse a folder, stack rules, inspect the preview, then rename. It is an original implementation and is not affiliated with TGRMN Software.
+It is an original implementation inspired by the Bulk Rename Utility workflow, not affiliated with TGRMN Software.
 
-## What it can do
+## Run on Windows
 
-- Prefix, suffix, and insert text at a character position
-- Find and replace (including blank replace to delete text)
-- Remove characters by position, type, word, digit, or symbol
-- Move or copy a slice of the filename
-- Case conversion: lower, UPPER, Title Case, Sentence case, tOGGLE
-- Sequential numbering with start, step, padding, and per-folder reset
-- Dates from created / modified / accessed / now / photo EXIF
-- Parent folder name in the filename
-- Extension change or removal
-- Photo EXIF and MP3 ID3 tokens
-- Rename from a `old|new` text or CSV list
-- Regular expressions (`\1` or `$1` groups)
-- Sandboxed JavaScript rules (`newName = ...`)
-- Recurse into subfolders, wildcard / regex filters
-- Rename in place, or copy / move into another folder
-- Optional timestamp and read-only updates
-- Favourites, activity log, and multi-file undo
+Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), then:
 
-## Install and run
-
-Python 3.11+ is required.
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-hulkrenaymer serve --seed
+```powershell
+dotnet restore
+dotnet test
+dotnet run --project src/HulkReNaymer.App
 ```
 
-Then open [http://127.0.0.1:8765](http://127.0.0.1:8765). `--seed` writes a `demo_files/` folder with the worked examples from the usage guide (project documents, export prefixes, photos with EXIF, an MP3 with ID3 tags, and a mapping list).
+Or publish a folder you can copy around:
 
-## Standard workflow
+```powershell
+dotnet publish src/HulkReNaymer.App -c Release -r win-x64 --self-contained false
+```
 
-1. Open a folder from Places, the tree, or the path bar.
-2. Select the files or folders to change.
-3. Turn on one or more numbered rule panels.
-4. Check the **New name** column. Conflicts and invalid names are flagged.
+`HulkReNaymer.exe` lands under `src/HulkReNaymer.App/bin/Release/net8.0-windows/win-x64/publish/`.
+
+**Load demo files** writes sample project docs, export CSVs, EXIF JPEGs, and an MP3 into `Documents\HulkReNaymer-Demo`.
+
+## Workflow
+
+1. Open a folder (Places, folder list, or Browse).
+2. Select the files to change.
+3. Turn on one or more numbered rule panels, or pick a preset.
+4. Check the **New name** column. Conflicts light up red.
 5. Click **Smash Rename** only when the preview is right.
-6. Use **Undo** if the batch needs to be reversed. Keep the log until you have sampled the result.
+6. **Undo** reverses the last batch.
 
-Nothing is renamed until you confirm. Typing into a rule only updates the preview.
+Rules reset after a successful rename so the same prefix is not applied twice.
 
-## CLI companion
-
-```bash
-hulkrenaymer preview demo_files/project --case title --find " " --replace _ --prefix PROJECT123_
-hulkrenaymer rename  demo_files/exports --find EXPORT_20260914_ --replace ""
-hulkrenaymer rename  demo_files/photos --from-list demo_files/asset_register.txt --dry-run
-hulkrenaymer undo
-```
-
-## Rule order
-
-Rules are applied in this order, matching the numbered panels:
+## Rules (same order as the panels)
 
 1. Name list (optional exclusive mapping)
-2. Regular expression
+2. Regular expression (`$1` groups work)
 3. Name / extension
 4. Find / replace
 5. Case
@@ -70,20 +46,25 @@ Rules are applied in this order, matching the numbered panels:
 7. Move / copy characters
 8. Add prefix, insert, suffix
 9. Parent folder
-10. Date
+10. Date (created / modified / accessed / now / photo EXIF)
 11. Numbering
-12. JavaScript
+12. JavaScript (`newName = name + '_' + index`)
+13. Filters
+14. Copy / move to another folder
+15. Timestamps
+16. Read-only / hidden / Windows-safe names
 
-Tokens you can use in prefix, suffix, insert, and fixed names:
+Tokens in prefix, suffix, insert, and fixed names:
 
-`{name}` `{ext}` `{folder}` `{n}` `{n:3}` `{date}` `{date:exif}` `{yyyy}` `{mm}` `{dd}` `{exif.date}` `{exif.width}` `{id3.artist}` `{id3.album}` `{id3.title}` `{size}`
+`{name}` `{ext}` `{folder}` `{n}` `{n:3}` `{date}` `{date:exif}` `{yyyy}` `{mm}` `{dd}` `{exif.date}` `{id3.artist}` `{id3.album}` `{id3.title}` `{size}`
 
-## Tests
+## Solution layout
 
-```bash
-pytest
-```
+- `src/HulkReNaymer.Core` — rename engine, scan, EXIF/ID3, undo (net8.0, tested on any OS)
+- `src/HulkReNaymer.App` — WPF UI (`net8.0-windows`)
+- `tests/HulkReNaymer.Tests` — engine and rename/undo tests
+- `docs/Bulk_Rename_Utility_Guide.md` — the capability guide this app implements
 
 ## Licence
 
-MIT. Use it, smash filenames, keep backups.
+MIT.
