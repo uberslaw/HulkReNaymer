@@ -19,3 +19,4 @@ demo_files/
 .DS_Store
 *.nupkg
 artifacts/
+launch-control/.mlc/

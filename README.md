@@ -95,7 +95,7 @@ Register once (or use MLC **Add app** / **Scan folder…** on this repo):
 ./scripts/Register-HulkReNaymer-MLC.ps1
 ```
 
-Then start `HulkReNaymer-LaunchControl.cmd`, or open it from MLC. The CMD builds `launch-control\HulkReNaymer.LaunchControl.csproj` if the exe is missing. Clone MLC to `%USERPROFILE%\Projects\master-launch-control`, or set `MLC_ROOT` to that clone, so the LC project can reference `LaunchControl.Standard`. Do **not** use `start ""` in the CMD — MLC must keep the inherited admin token.
+Then start `HulkReNaymer-LaunchControl.cmd`, or open it from MLC. The CMD builds `launch-control\HulkReNaymer.LaunchControl.csproj` if the exe is missing. It finds `LaunchControl.Standard` in this order: `MLC_ROOT` / `MlcRoot`, `%USERPROFILE%\Projects\master-launch-control`, `C:\Users\christopher.owen\Projects\master-launch-control`, sibling `..\master-launch-control`, then `%LOCALAPPDATA%\HulkReNaymer\master-launch-control`. If none of those exist, it `git clone --depth 1 https://github.com/uberslaw/master-launch-control.git` into the LocalAppData cache and builds with `-p:MlcRoot=...`. Do **not** use `start ""` in the CMD — MLC must keep the inherited admin token.
 
 ## Build from source
 

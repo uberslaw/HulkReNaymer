@@ -1,4 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    LaunchControl.Standard search order (same as scripts\Resolve-MlcRoot.ps1):
+      1. MLC_ROOT / MlcRoot when it contains src\LaunchControl.Standard\LaunchControl.Standard.csproj
+      2. %USERPROFILE%\Projects\master-launch-control
+      3. C:\Users\christopher.owen\Projects\master-launch-control
+      4. sibling ..\master-launch-control next to this repo
+      5. %LOCALAPPDATA%\HulkReNaymer\master-launch-control (auto-clone cache)
+    scripts\HulkReNaymer-LaunchControl.cmd will git clone --depth 1
+    https://github.com/uberslaw/master-launch-control.git into that cache when missing.
+  -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -11,17 +21,23 @@
     <ApplicationTitle>HulkReNaymer Launch Control</ApplicationTitle>
     <Product>HulkReNaymer Launch Control</Product>
     <Version>1.0.0</Version>
-    <MlcRoot Condition="'$(MlcRoot)' == '' and '$(MLC_ROOT)' != ''">$(MLC_ROOT)</MlcRoot>
-    <MlcRoot Condition="'$(MlcRoot)' == '' and Exists('$(USERPROFILE)\Projects\master-launch-control\src\LaunchControl.Standard\LaunchControl.Standard.csproj')">$(USERPROFILE)\Projects\master-launch-control</MlcRoot>
-    <MlcRoot Condition="'$(MlcRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\master-launch-control\src\LaunchControl.Standard\LaunchControl.Standard.csproj')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\master-launch-control'))</MlcRoot>
-    <MlcStandard>$(MlcRoot)\src\LaunchControl.Standard\LaunchControl.Standard.csproj</MlcStandard>
+    <MlcStandardRel>src\LaunchControl.Standard\LaunchControl.Standard.csproj</MlcStandardRel>
+    <MlcSibling>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\master-launch-control'))</MlcSibling>
+    <MlcCache Condition="'$(LOCALAPPDATA)' != ''">$(LOCALAPPDATA)\HulkReNaymer\master-launch-control</MlcCache>
+    <MlcCache Condition="'$(MlcCache)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory).mlc'))</MlcCache>
+    <MlcRoot Condition="'$(MlcRoot)' == '' and '$(MLC_ROOT)' != '' and Exists('$(MLC_ROOT)\$(MlcStandardRel)')">$(MLC_ROOT)</MlcRoot>
+    <MlcRoot Condition="'$(MlcRoot)' == '' and Exists('$(USERPROFILE)\Projects\master-launch-control\$(MlcStandardRel)')">$(USERPROFILE)\Projects\master-launch-control</MlcRoot>
+    <MlcRoot Condition="'$(MlcRoot)' == '' and Exists('C:\Users\christopher.owen\Projects\master-launch-control\$(MlcStandardRel)')">C:\Users\christopher.owen\Projects\master-launch-control</MlcRoot>
+    <MlcRoot Condition="'$(MlcRoot)' == '' and Exists('$(MlcSibling)\$(MlcStandardRel)')">$(MlcSibling)</MlcRoot>
+    <MlcRoot Condition="'$(MlcRoot)' == '' and Exists('$(MlcCache)\$(MlcStandardRel)')">$(MlcCache)</MlcRoot>
+    <MlcStandard>$(MlcRoot)\$(MlcStandardRel)</MlcStandard>
   </PropertyGroup>
   <Target Name="RequireLaunchControlStandard" BeforeTargets="ResolveProjectReferences">
     <Error
       Condition="'$(MlcRoot)' == '' or !Exists('$(MlcStandard)')"
-      Text="LaunchControl.Standard was not found. Clone https://github.com/uberslaw/master-launch-control to %USERPROFILE%\Projects\master-launch-control or set MLC_ROOT / MlcRoot to that repo." />
+      Text="LaunchControl.Standard was not found. Tried: MLC_ROOT/MlcRoot=$(MLC_ROOT)$(MlcRoot); $(USERPROFILE)\Projects\master-launch-control; C:\Users\christopher.owen\Projects\master-launch-control; $(MlcSibling); $(MlcCache). Run scripts\HulkReNaymer-LaunchControl.cmd to git clone --depth 1 https://github.com/uberslaw/master-launch-control.git into the LocalAppData cache, or set MLC_ROOT / MlcRoot to a clone that contains src\LaunchControl.Standard\LaunchControl.Standard.csproj." />
   </Target>
   <ItemGroup>
-    <ProjectReference Include="$(MlcStandard)" />
+    <ProjectReference Include="$(MlcStandard)" Condition="Exists('$(MlcStandard)')" />
   </ItemGroup>
 </Project>
