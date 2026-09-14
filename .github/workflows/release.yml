@@ -17,7 +17,7 @@ jobs:
         with:
           dotnet-version: "8.0.x"
       - name: Install Inno Setup
-        run: choco install innosetup --no-progress -y
+        run: choco install innosetup --version 6.7.1 --no-progress -y
       - name: Build installer and portable zip
         shell: pwsh
         run: ./scripts/build-windows.ps1 -RequireInstaller

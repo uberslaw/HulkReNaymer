@@ -323,6 +323,61 @@ public class AssumptionTests
     }
 
     [Fact]
+    public void FavoriteJsonRoundTrip_KeepsCaseInsensitiveMapping()
+    {
+        var original = new Rules { Mapping = FavoritesStore.ParseMapping("img001.jpg|Renamed.jpg") };
+        var json = System.Text.Json.JsonSerializer.Serialize(original);
+        var loaded = System.Text.Json.JsonSerializer.Deserialize<Rules>(json);
+        Assert.NotNull(loaded);
+        var item = new FileItem
+        {
+            Path = @"C:\photos\IMG001.jpg",
+            Name = "IMG001.jpg",
+            Stem = "IMG001",
+            Ext = ".jpg",
+            Folder = "photos",
+            Parent = @"C:\photos"
+        };
+        Assert.Equal("Renamed.jpg", RenameEngine.ApplyRules(item, loaded, 1).NewName);
+    }
+
+    [Fact]
+    public void WindowsPackagingInputs_MatchInstallerAndPublishAssumptions()
+    {
+        var root = FindRepoRoot();
+        Assert.True(File.Exists(Path.Combine(root, "LICENSE")));
+        Assert.True(File.Exists(Path.Combine(root, "src", "HulkReNaymer.App", "Assets", "hulk.ico")));
+        Assert.True(File.Exists(Path.Combine(root, "src", "HulkReNaymer.App", "Assets", "hulk.png")));
+        Assert.True(File.Exists(Path.Combine(root, "src", "HulkReNaymer.App", "Assets", "Bangers-Regular.ttf")));
+
+        var csproj = File.ReadAllText(Path.Combine(root, "src", "HulkReNaymer.App", "HulkReNaymer.App.csproj"));
+        Assert.Contains("<Version>1.0.0</Version>", csproj);
+        Assert.Contains("<Resource Include=\"Assets\\Bangers-Regular.ttf\" />", csproj);
+        Assert.Contains("<Resource Include=\"Assets\\hulk.png\" />", csproj);
+
+        var profile = File.ReadAllText(Path.Combine(root, "src", "HulkReNaymer.App", "Properties", "PublishProfiles", "Win-x64.pubxml"));
+        Assert.Contains("<RuntimeIdentifier>win-x64</RuntimeIdentifier>", profile);
+        Assert.Contains("<SelfContained>true</SelfContained>", profile);
+        Assert.Contains("<PublishTrimmed>false</PublishTrimmed>", profile);
+
+        var iss = File.ReadAllText(Path.Combine(root, "setup", "HulkReNaymer.iss"));
+        Assert.Contains("LicenseFile=..\\LICENSE", iss);
+        Assert.Contains("SetupIconFile=..\\src\\HulkReNaymer.App\\Assets\\hulk.ico", iss);
+        Assert.Contains("Source: \"..\\artifacts\\app\\*\"", iss);
+        Assert.Contains("ArchitecturesAllowed=x64compatible", iss);
+        Assert.Contains("DefaultDirName={autopf}\\{#MyAppName}", iss);
+
+        var appXaml = File.ReadAllText(Path.Combine(root, "src", "HulkReNaymer.App", "App.xaml"));
+        Assert.Contains("pack://application:,,,/Assets/#Bangers", appXaml);
+
+        var script = File.ReadAllText(Path.Combine(root, "scripts", "build-windows.ps1"));
+        Assert.Contains("-r win-x64", script);
+        Assert.Contains("--self-contained true", script);
+        Assert.Contains("HulkReNaymer-Setup.exe", script);
+        Assert.Contains("HulkReNaymer-portable-win-x64.zip", script);
+    }
+
+    [Fact]
     public void PackagedBangersFont_InternalFamilyNameIsBangers()
     {
         var font = FindRepoFile(Path.Combine("src", "HulkReNaymer.App", "Assets", "Bangers-Regular.ttf"));
@@ -331,17 +386,19 @@ public class AssumptionTests
         Assert.Contains("Bangers", names);
     }
 
-    static string FindRepoFile(string relative)
+    static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            var candidate = Path.Combine(dir.FullName, relative);
-            if (File.Exists(candidate)) return candidate;
+            if (File.Exists(Path.Combine(dir.FullName, "HulkReNaymer.sln")))
+                return dir.FullName;
             dir = dir.Parent;
         }
-        return relative;
+        throw new DirectoryNotFoundException("Could not find HulkReNaymer.sln from " + AppContext.BaseDirectory);
     }
+
+    static string FindRepoFile(string relative) => Path.Combine(FindRepoRoot(), relative);
 
     static List<string> ReadTtfNameRecords(string path)
     {
