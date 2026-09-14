@@ -153,7 +153,10 @@ function renderRows(rows) {
   state.rows = rows;
   const body = $("#files tbody");
   body.innerHTML = "";
-  const selected = new Set(state.selected || rows.filter((r) => r.selected).map((r) => r.path));
+  const selectedPaths = state.selected == null
+    ? rows.filter((row) => row.selected).map((row) => row.path)
+    : state.selected;
+  const selected = new Set(selectedPaths);
   for (const row of rows) {
     const tr = document.createElement("tr");
     tr.className = row.status;
@@ -205,12 +208,11 @@ async function preview() {
   const payload = {
     ...scanPayload(),
     rules: readRules(),
-    selected: currentSelected().length ? currentSelected() : state.selected,
+    selected: state.selected,
     sort_column: state.sort,
     sort_desc: state.desc,
   };
   const data = await api("/api/preview", { method: "POST", body: JSON.stringify(payload) });
-  if (payload.selected) state.selected = payload.selected;
   renderRows(data.rows);
   updateStats(data.counts, data.warning);
 }
