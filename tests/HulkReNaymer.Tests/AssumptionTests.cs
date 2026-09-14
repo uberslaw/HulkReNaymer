@@ -399,7 +399,7 @@ public class AssumptionTests
             Assert.Equal(emptyHash[..8], Tokens.Expand("{hash}", emptyItem, new Rules(), 1));
             Assert.Equal(emptyHash[..8], Tokens.Expand("{hash:8}", emptyItem, new Rules(), 1));
             Assert.Equal(emptyHash, Tokens.Expand("{hash:64}", emptyItem, new Rules(), 1));
-            Assert.Equal(emptyHash[..1], Tokens.Expand("{hash:0}", emptyItem, new Rules(), 1), "width 0 clamps to 1");
+            Assert.Equal(emptyHash[..1], Tokens.Expand("{hash:0}", emptyItem, new Rules(), 1));
 
             var helloItem = MetadataReader.Describe(hello);
             var helloHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.ASCII.GetBytes("hello"))).ToLowerInvariant();
@@ -444,11 +444,11 @@ public class AssumptionTests
                 RenameEngine.ApplyRules(item, new Rules { AddEnabled = true, Prefix = "{git.branch}_" }, 1).NewName);
 
             GitTestRepo.Run(root, "checkout", "--detach", "HEAD");
-            Assert.Equal("", GitOps.CurrentBranch(path), "detached HEAD must not insert the literal HEAD");
+            Assert.Equal("", GitOps.CurrentBranch(path));
             Assert.Equal("", Tokens.Expand("{git.branch}", MetadataReader.Describe(path), new Rules(), 1));
 
             Environment.SetEnvironmentVariable("PATH", "");
-            Assert.Equal("", GitOps.CurrentBranch(path), "missing git on PATH is an empty token, not a throw");
+            Assert.Equal("", GitOps.CurrentBranch(path));
             Assert.False(GitOps.TryMove(path, Path.Combine(root, "moved.txt")));
         }
         finally

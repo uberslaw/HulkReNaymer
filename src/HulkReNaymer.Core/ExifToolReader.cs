@@ -143,7 +143,7 @@ public static class ExifToolReader
     /// <summary>
     /// ExifTool <c>-n</c> prints duration as seconds (e.g. 65.5). TagLib uses <c>MM-SS</c> / <c>HH-MM-SS</c>.
     /// </summary>
-    internal static string NormalizeDuration(string raw)
+    public static string NormalizeDuration(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return "";
         raw = raw.Trim();
