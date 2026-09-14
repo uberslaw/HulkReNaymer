@@ -138,6 +138,8 @@
               <ComboBoxItem Content="Title Case" Tag="title"/>
               <ComboBoxItem Content="Sentence case" Tag="sentence"/>
               <ComboBoxItem Content="tOGGLE" Tag="toggle"/>
+              <ComboBoxItem Content="kebab-case" Tag="kebab"/>
+              <ComboBoxItem Content="URL slug" Tag="slug"/>
             </ComboBox>
             <ComboBox x:Name="CaseApplyToBox" SelectedIndex="0">
               <ComboBoxItem Content="Name" Tag="name"/>
@@ -192,7 +194,7 @@
               <TextBox x:Name="InsertAtBox" DockPanel.Dock="Right" Width="50" Text="0" ToolTip="At"/>
               <TextBox x:Name="InsertBox" ToolTip="Insert text" Margin="0,0,6,0"/>
             </DockPanel>
-            <TextBlock Text="Tokens: {name} {folder} {n} {date} {exif.date} {id3.artist}" Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap"/>
+            <TextBlock Text="Tokens: {name} {folder} {n} {date} {exif.date} {id3.artist} {git.branch} {hash:8}" Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap"/>
           </StackPanel>
         </Border>
         <Border Style="{StaticResource RuleCard}">

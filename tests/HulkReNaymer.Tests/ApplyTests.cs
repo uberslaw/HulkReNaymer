@@ -66,6 +66,10 @@ public class ApplyTests
             Assert.Equal(2, result.Renamed);
             Assert.Equal("b", File.ReadAllText(Path.Combine(root, "alpha.txt")));
             Assert.Equal("a", File.ReadAllText(Path.Combine(root, "beta.txt")));
+            var undone = ApplyService.UndoLast();
+            Assert.Equal(2, undone.Renamed);
+            Assert.Equal("a", File.ReadAllText(Path.Combine(root, "alpha.txt")));
+            Assert.Equal("b", File.ReadAllText(Path.Combine(root, "beta.txt")));
         }
         finally
         {

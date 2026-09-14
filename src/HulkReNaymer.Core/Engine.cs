@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace HulkReNaymer;
@@ -400,8 +401,74 @@ public static class RenameEngine
         "title" => TitleCaseManual(value),
         "sentence" => SentenceCase(value),
         "toggle" => new string(value.Select(c => char.IsLetter(c) ? (char.IsUpper(c) ? char.ToLowerInvariant(c) : char.ToUpperInvariant(c)) : c).ToArray()),
+        "kebab" => ToKebab(value),
+        "slug" => ToSlug(value),
         _ => value
     };
+
+    internal static string ToKebab(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        var sb = new StringBuilder(value.Length + 8);
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            if (char.IsWhiteSpace(c) || c is '_' or '.' or '/' or '\\')
+            {
+                AppendHyphen(sb);
+                continue;
+            }
+            if (c == '-')
+            {
+                AppendHyphen(sb);
+                continue;
+            }
+            if (char.IsUpper(c) && sb.Length > 0 && sb[^1] != '-')
+            {
+                var prev = value[i - 1];
+                var nextLower = i + 1 < value.Length && char.IsLower(value[i + 1]);
+                if (!char.IsUpper(prev) || nextLower)
+                    sb.Append('-');
+            }
+            sb.Append(char.ToLowerInvariant(c));
+        }
+        return TrimHyphens(sb);
+    }
+
+    internal static string ToSlug(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        string normalized;
+        try { normalized = value.Normalize(NormalizationForm.FormD); }
+        catch { normalized = value; }
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            var cat = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (cat == UnicodeCategory.NonSpacingMark) continue;
+            var lower = char.ToLowerInvariant(c);
+            if (char.IsLetterOrDigit(lower))
+                sb.Append(lower);
+            else if (sb.Length > 0 && sb[^1] != '-')
+                sb.Append('-');
+        }
+        return TrimHyphens(sb);
+    }
+
+    static void AppendHyphen(StringBuilder sb)
+    {
+        if (sb.Length > 0 && sb[^1] != '-')
+            sb.Append('-');
+    }
+
+    static string TrimHyphens(StringBuilder sb)
+    {
+        var start = 0;
+        var end = sb.Length;
+        while (start < end && sb[start] == '-') start++;
+        while (end > start && sb[end - 1] == '-') end--;
+        return start == 0 && end == sb.Length ? sb.ToString() : sb.ToString(start, end - start);
+    }
 
     static string TitleCaseManual(string value)
     {

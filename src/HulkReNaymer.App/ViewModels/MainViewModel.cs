@@ -66,17 +66,7 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<PlaceItem> Places { get; } = [];
     public ObservableCollection<PlaceItem> Folders { get; } = [];
     public ObservableCollection<string> Favorites { get; } = [];
-    public string[] Presets { get; } =
-    [
-        "",
-        "Project documents",
-        "Strip export prefix",
-        "Photo date + sequence",
-        "Title case + underscores",
-        "Prefix parent folder",
-        "MP3 artist - title",
-        "Search and replace"
-    ];
+    public string[] Presets { get; } = RulePresets.Names;
 
     public Rules Rules { get; private set; } = new();
     public event Action? RequestCollectRules;
@@ -364,22 +354,7 @@ public partial class MainViewModel : ObservableObject
 
     public void ApplyPreset(string name)
     {
-        Rules = name switch
-        {
-            "Project documents" => new Rules { CaseMode = "title", ReplaceEnabled = true, Find = " ", ReplaceWith = "_", AddEnabled = true, Prefix = "PROJECT123_" },
-            "Strip export prefix" => new Rules { ReplaceEnabled = true, Find = "EXPORT_20260914_", ReplaceWith = "" },
-            "Photo date + sequence" => new Rules
-            {
-                NameEnabled = true, NameMode = "remove", DateEnabled = true, DateSource = "exif",
-                DateFormat = "yyyy-MM-dd", AddEnabled = true, Suffix = "Site-Inspection",
-                NumberingEnabled = true, NumberPad = 3
-            },
-            "Title case + underscores" => new Rules { CaseMode = "title", ReplaceEnabled = true, Find = " ", ReplaceWith = "_" },
-            "Prefix parent folder" => new Rules { FolderEnabled = true, FolderMode = "prefix", FolderSeparator = "_" },
-            "MP3 artist - title" => new Rules { NameEnabled = true, NameMode = "fixed", NameFixed = "{id3.artist} - {id3.title}" },
-            "Search and replace" => new Rules { RegexEnabled = true, RegexApplyTo = "name" },
-            _ => new Rules { WindowsSafe = true }
-        };
+        Rules = RulePresets.Create(name);
         OnPropertyChanged(nameof(Rules));
         RulesChanged?.Invoke();
         Refresh();

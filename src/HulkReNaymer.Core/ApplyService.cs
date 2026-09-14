@@ -75,8 +75,7 @@ public static class ApplyService
             try
             {
                 var temp = UniqueTemp(Path.GetDirectoryName(row.Path)!, Path.GetExtension(row.Path));
-                if (row.IsDir) Directory.Move(row.Path, temp);
-                else File.Move(row.Path, temp);
+                MovePath(row.Path, temp, row.IsDir);
                 temps.Add((row, temp));
             }
             catch (Exception ex)
@@ -91,8 +90,7 @@ public static class ApplyService
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(row.NewPath)!);
-                if (row.IsDir) Directory.Move(temp, row.NewPath);
-                else File.Move(temp, row.NewPath);
+                MovePath(temp, row.NewPath, row.IsDir);
                 ApplyAttributes(row.NewPath, rules);
                 undoOps.Add(new UndoOp(rules.Operation, row.Path, row.NewPath, row.IsDir));
                 AppendLog($"{rules.Operation.ToUpperInvariant()}  {row.Path} -> {row.NewPath}");
@@ -102,8 +100,7 @@ public static class ApplyService
             {
                 try
                 {
-                    if (row.IsDir) Directory.Move(temp, row.Path);
-                    else File.Move(temp, row.Path);
+                    MovePath(temp, row.Path, row.IsDir);
                 }
                 catch { /* keep temp */ }
                 failed.Add(new FailedItem { Path = row.Path, Error = ex.Message });
@@ -126,26 +123,50 @@ public static class ApplyService
         batches.RemoveAt(batches.Count - 1);
         var undone = 0;
         var failed = new List<FailedItem>();
-        foreach (var op in batch.Ops.AsEnumerable().Reverse())
+        var copies = batch.Ops.Where(op => op.Operation == "copy").Reverse().ToList();
+        var moves = batch.Ops.Where(op => op.Operation != "copy").Reverse().ToList();
+        foreach (var op in copies)
         {
             try
             {
-                if (op.Operation == "copy")
-                {
-                    if (op.IsDir && Directory.Exists(op.Dest)) Directory.Delete(op.Dest, true);
-                    else if (File.Exists(op.Dest)) File.Delete(op.Dest);
-                }
-                else
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(op.Source)!);
-                    if (op.IsDir) Directory.Move(op.Dest, op.Source);
-                    else File.Move(op.Dest, op.Source);
-                }
+                if (op.IsDir && Directory.Exists(op.Dest)) Directory.Delete(op.Dest, true);
+                else if (File.Exists(op.Dest)) File.Delete(op.Dest);
                 undone++;
                 AppendLog($"UNDO  {op.Dest} -> {op.Source}");
             }
             catch (Exception ex)
             {
+                failed.Add(new FailedItem { Path = op.Dest, Error = ex.Message });
+            }
+        }
+
+        var temps = new List<(UndoOp Op, string Temp)>();
+        foreach (var op in moves)
+        {
+            try
+            {
+                var parent = Path.GetDirectoryName(op.Dest) ?? Path.GetDirectoryName(op.Source) ?? "";
+                var temp = UniqueTemp(parent, Path.GetExtension(op.Dest));
+                MovePath(op.Dest, temp, op.IsDir);
+                temps.Add((op, temp));
+            }
+            catch (Exception ex)
+            {
+                failed.Add(new FailedItem { Path = op.Dest, Error = ex.Message });
+            }
+        }
+        foreach (var (op, temp) in temps)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(op.Source)!);
+                MovePath(temp, op.Source, op.IsDir);
+                undone++;
+                AppendLog($"UNDO  {op.Dest} -> {op.Source}");
+            }
+            catch (Exception ex)
+            {
+                try { MovePath(temp, op.Dest, op.IsDir); } catch { /* keep temp */ }
                 failed.Add(new FailedItem { Path = op.Dest, Error = ex.Message });
             }
         }
@@ -189,6 +210,14 @@ public static class ApplyService
             }
             catch { /* ignore */ }
         }
+    }
+
+    static void MovePath(string source, string dest, bool isDir)
+    {
+        if (GitOps.TryMove(source, dest))
+            return;
+        if (isDir) Directory.Move(source, dest);
+        else File.Move(source, dest);
     }
 
     static DateTime? ParseIso(string value) =>

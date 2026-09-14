@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace HulkReNaymer;
@@ -73,6 +74,15 @@ public static class Tokens
             }
             if (key.StartsWith("date:", StringComparison.Ordinal))
                 return FormatDate(ItemDate(item, key[5..]), rules.DateFormat);
+            if (key.Equals("git.branch", StringComparison.OrdinalIgnoreCase))
+                return GitOps.CurrentBranch(item.Path);
+            if (key.Equals("hash", StringComparison.OrdinalIgnoreCase))
+                return ContentHash(item, 8);
+            if (key.StartsWith("hash:", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!int.TryParse(key[5..], out var width)) width = 8;
+                return ContentHash(item, width);
+            }
             return values.TryGetValue(key, out var value) ? value : match.Value;
         });
     }
@@ -134,5 +144,23 @@ public static class Tokens
         var converted = Names.ConvertDateFormat(format);
         try { return value.Value.ToString(converted, CultureInfo.InvariantCulture); }
         catch { return value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture); }
+    }
+
+    static string ContentHash(FileItem item, int width)
+    {
+        width = Math.Clamp(width, 1, 64);
+        if (item.IsDir) return "";
+        try
+        {
+            if (!File.Exists(item.Path)) return "";
+            using var stream = File.OpenRead(item.Path);
+            var hash = SHA256.HashData(stream);
+            var hex = Convert.ToHexString(hash).ToLowerInvariant();
+            return hex[..Math.Min(width, hex.Length)];
+        }
+        catch
+        {
+            return "";
+        }
     }
 }
