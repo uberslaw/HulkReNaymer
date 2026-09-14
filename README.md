@@ -63,7 +63,7 @@ That creates a shortcut in `%AppData%\Microsoft\Windows\SendTo`. Right-click fil
 
 ## Launch Control (Master Launch Control)
 
-HulkReNaymer plugs into [Master Launch Control](https://github.com/uberslaw/master-launch-control) as a **Generic** app. The product LC is a C# host that references `LaunchControl.Standard` from that repo.
+HulkReNaymer plugs into [Master Launch Control](https://github.com/uberslaw/master-launch-control) as a **Generic** app. The product LC is a C# host that references the in-repo copy of `LaunchControl.Standard` at `launch-control/LaunchControl.Standard`. You do **not** need to clone Master Launch Control, set `MLC_ROOT`, or be online to build the LC.
 
 The LC is the same `LaunchControl.Standard` chrome as Switcheroo (header, Theme…, status + PID, Start / Stop / Restart, Refresh, Follow logs, extra-action groups, event pane). HulkReNaymer has no Windows service, so Start/Stop drive the desktop exe.
 
@@ -95,7 +95,7 @@ Register once (or use MLC **Add app** / **Scan folder…** on this repo):
 ./scripts/Register-HulkReNaymer-MLC.ps1
 ```
 
-Then start `HulkReNaymer-LaunchControl.cmd`, or open it from MLC. The CMD builds `launch-control\HulkReNaymer.LaunchControl.csproj` if the exe is missing. It finds `LaunchControl.Standard` in this order: `MLC_ROOT` / `MlcRoot`, `%USERPROFILE%\Projects\master-launch-control`, `C:\Users\christopher.owen\Projects\master-launch-control`, sibling `..\master-launch-control`, then `%LOCALAPPDATA%\HulkReNaymer\master-launch-control`. If none of those exist, it `git clone --depth 1 https://github.com/uberslaw/master-launch-control.git` into the LocalAppData cache and builds with `-p:MlcRoot=...`. Do **not** use `start ""` in the CMD — MLC must keep the inherited admin token.
+Then start `HulkReNaymer-LaunchControl.cmd`, or open it from MLC. The CMD builds `launch-control\HulkReNaymer.LaunchControl.csproj` if the exe is missing, using the vendored `launch-control\LaunchControl.Standard` project. Optional: set `MLC_ROOT` / `MlcRoot` to a Master Launch Control clone if you want that repo’s Standard instead. Do **not** use `start ""` in the CMD — MLC must keep the inherited admin token.
 
 ## Build from source
 
@@ -105,6 +105,12 @@ Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). To r
 dotnet restore
 dotnet test
 dotnet run --project src/HulkReNaymer.App
+```
+
+Launch Control is not part of `HulkReNaymer.sln`. To build it from this repo (no Master Launch Control clone):
+
+```powershell
+dotnet build launch-control/HulkReNaymer.LaunchControl.csproj -c Release
 ```
 
 To produce the same installer and portable zip that Releases publish, on Windows:
@@ -127,6 +133,7 @@ Tag a version (`v1.0.0`) and push it to trigger the release workflow.
 - `scripts/HulkReNaymer-LaunchControl.cmd` — Master Launch Control entrypoint
 - `scripts/Register-HulkReNaymer-MLC.ps1` — add this repo to MLC `apps.json`
 - `launch-control\` — C# LC host (Rebuild / Run / Open CLI)
+- `launch-control/LaunchControl.Standard` — vendored theme-host library (no MLC clone required)
 - `setup/HulkReNaymer.iss` — Inno Setup script
 - `docs/Bulk_Rename_Utility_Guide.md` — the capability guide this app implements
 

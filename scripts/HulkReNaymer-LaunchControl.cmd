@@ -5,14 +5,8 @@ cd /d "%~dp0"
 rem Master-facing Launch Control. Invoke the C# host directly (no `start ""`)
 rem so an elevated Master Launch Control keeps its token.
 rem
-rem LaunchControl.Standard search order (Resolve-MlcRoot.ps1):
-rem   1. MLC_ROOT / MlcRoot when it contains src\LaunchControl.Standard\LaunchControl.Standard.csproj
-rem   2. %USERPROFILE%\Projects\master-launch-control
-rem   3. C:\Users\christopher.owen\Projects\master-launch-control
-rem   4. sibling ..\master-launch-control next to this repo
-rem   5. %LOCALAPPDATA%\HulkReNaymer\master-launch-control (auto-clone cache)
-rem If none exist, git clone --depth 1 https://github.com/uberslaw/master-launch-control.git
-rem into that cache, then dotnet build -p:MlcRoot=...
+rem Builds launch-control\HulkReNaymer.LaunchControl.csproj against the
+rem in-repo LaunchControl.Standard. No MLC clone or MLC_ROOT is required.
 
 set "REPO_ROOT=%~dp0.."
 for %%I in ("%REPO_ROOT%") do set "REPO_ROOT=%%~fI"
@@ -30,17 +24,10 @@ if not exist "%EXE%" (
     exit /b 1
   )
 
-  set "MLC_RESOLVED="
-  for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Resolve-MlcRoot.ps1" -RepoRoot "%REPO_ROOT%"`) do set "MLC_RESOLVED=%%I"
-  if not defined MLC_RESOLVED (
-    echo Build cannot start until LaunchControl.Standard is available.
-    pause
-    exit /b 1
-  )
-
-  dotnet build "%LC_PROJ%" -c Release -p:MlcRoot="%MLC_RESOLVED%"
+  dotnet build "%LC_PROJ%" -c Release
   if errorlevel 1 (
-    echo Build failed.
+    echo.
+    echo Build failed. See the dotnet errors above.
     pause
     exit /b 1
   )
