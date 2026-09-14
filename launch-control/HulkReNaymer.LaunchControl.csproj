@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RootNamespace>HulkReNaymer.LaunchControl</RootNamespace>
+    <AssemblyName>HulkReNaymer.LaunchControl</AssemblyName>
+    <ApplicationTitle>HulkReNaymer Launch Control</ApplicationTitle>
+    <Product>HulkReNaymer Launch Control</Product>
+    <Version>1.0.0</Version>
+    <MlcRoot Condition="'$(MlcRoot)' == '' and '$(MLC_ROOT)' != ''">$(MLC_ROOT)</MlcRoot>
+    <MlcRoot Condition="'$(MlcRoot)' == '' and Exists('$(USERPROFILE)\Projects\master-launch-control\src\LaunchControl.Standard\LaunchControl.Standard.csproj')">$(USERPROFILE)\Projects\master-launch-control</MlcRoot>
+    <MlcRoot Condition="'$(MlcRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\master-launch-control\src\LaunchControl.Standard\LaunchControl.Standard.csproj')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\master-launch-control'))</MlcRoot>
+    <MlcStandard>$(MlcRoot)\src\LaunchControl.Standard\LaunchControl.Standard.csproj</MlcStandard>
+  </PropertyGroup>
+  <Target Name="RequireLaunchControlStandard" BeforeTargets="ResolveProjectReferences">
+    <Error
+      Condition="'$(MlcRoot)' == '' or !Exists('$(MlcStandard)')"
+      Text="LaunchControl.Standard was not found. Clone https://github.com/uberslaw/master-launch-control to %USERPROFILE%\Projects\master-launch-control or set MLC_ROOT / MlcRoot to that repo." />
+  </Target>
+  <ItemGroup>
+    <ProjectReference Include="$(MlcStandard)" />
+  </ItemGroup>
+</Project>

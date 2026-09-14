@@ -61,6 +61,34 @@ The installer can add **HulkReNaymer** to the Explorer **Send to** menu. For a p
 
 That creates a shortcut in `%AppData%\Microsoft\Windows\SendTo`. Right-click files → Send to → HulkReNaymer. Use `-Remove` to delete the shortcut.
 
+## Launch Control (Master Launch Control)
+
+HulkReNaymer plugs into [Master Launch Control](https://github.com/uberslaw/master-launch-control) as a **Generic** app. The product LC is a C# host that references `LaunchControl.Standard` from that repo.
+
+Buttons on the LC (open it from an MLC card with **Open Launch Control**):
+
+| Button | What it does |
+|--------|----------------|
+| **Rebuild Release** | `dotnet build HulkReNaymer.sln -c Release` (background) |
+| **Rebuild Debug** | `dotnet build HulkReNaymer.sln -c Debug` |
+| **Run Release** | Starts `src\HulkReNaymer.App\bin\Release\net8.0-windows\HulkReNaymer.exe` |
+| **Run Debug** | Starts the Debug exe |
+| **Open CLI** | Opens `cmd.exe` at the repo root with both bin folders on `PATH`, so you can run `HulkReNaymer.exe file1 file2`, `dotnet test`, etc. |
+
+MLC card actions (no MLC rebuild):
+
+- **Open** / **Start** — the Release `HulkReNaymer.exe` from `launch-control.json` `installExe`
+- **Open Launch Control** — this LC (the five buttons above)
+- **Diagnostics** — opens the log folders
+
+Register once (or use MLC **Add app** / **Scan folder…** on this repo):
+
+```powershell
+./scripts/Register-HulkReNaymer-MLC.ps1
+```
+
+Then start `HulkReNaymer-LaunchControl.cmd`, or open it from MLC. The CMD builds `launch-control\HulkReNaymer.LaunchControl.csproj` if the exe is missing. Clone MLC to `%USERPROFILE%\Projects\master-launch-control`, or set `MLC_ROOT` to that clone, so the LC project can reference `LaunchControl.Standard`. Do **not** use `start ""` in the CMD — MLC must keep the inherited admin token.
+
 ## Build from source
 
 Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). To run the app while developing:
@@ -88,6 +116,9 @@ Tag a version (`v1.0.0`) and push it to trigger the release workflow.
 - `tests/HulkReNaymer.Tests` — engine and rename/undo tests
 - `scripts/build-windows.ps1` — release publish + zip + installer
 - `scripts/install-sendto.ps1` — add or remove the Explorer Send To shortcut
+- `scripts/HulkReNaymer-LaunchControl.cmd` — Master Launch Control entrypoint
+- `scripts/Register-HulkReNaymer-MLC.ps1` — add this repo to MLC `apps.json`
+- `launch-control\` — C# LC host (Rebuild / Run / Open CLI)
 - `setup/HulkReNaymer.iss` — Inno Setup script
 - `docs/Bulk_Rename_Utility_Guide.md` — the capability guide this app implements
 

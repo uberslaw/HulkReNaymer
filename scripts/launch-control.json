@@ -1,0 +1,15 @@
+{
+  "productId": "hulkrenaymer",
+  "productName": "HulkReNaymer",
+  "serviceNames": [],
+  "installExe": "..\\src\\HulkReNaymer.App\\bin\\Release\\net8.0-windows\\HulkReNaymer.exe",
+  "logDirs": [
+    "%LOCALAPPDATA%\\HulkReNaymer\\logs",
+    "%APPDATA%\\HulkReNaymer"
+  ],
+  "logPaths": [
+    "%APPDATA%\\HulkReNaymer\\hulkrenaymer.log"
+  ],
+  "showVenvUi": false,
+  "showBrowser": false
+}
