@@ -21,7 +21,26 @@ public partial class MainWindow : Window
         RulesHost.AddHandler(CheckBox.CheckedEvent, new RoutedEventHandler(OnRulesChanged));
         RulesHost.AddHandler(CheckBox.UncheckedEvent, new RoutedEventHandler(OnRulesChanged));
         RulesHost.AddHandler(ComboBox.SelectionChangedEvent, new SelectionChangedEventHandler(OnRulesChanged));
-        Loaded += (_, _) => _vm.OpenPath(_vm.CurrentPath);
+        Loaded += (_, _) =>
+        {
+            var extras = Environment.GetCommandLineArgs()
+                .Skip(1)
+                .Where(arg => !string.IsNullOrWhiteSpace(arg) && !arg.StartsWith('-'));
+            _vm.OpenFromCommandLine(extras);
+        };
+    }
+
+    void OnPreviewDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    void OnPreviewDrop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths)
+            _vm.OpenItems(paths);
+        e.Handled = true;
     }
 
     void OnRulesChanged(object sender, RoutedEventArgs e)
@@ -151,6 +170,7 @@ public partial class MainWindow : Window
         rules.SetHidden = SetHidden.IsChecked == true;
         rules.HiddenValue = HiddenValue.IsChecked == true;
         rules.WindowsSafe = WindowsSafe.IsChecked != false;
+        rules.CollisionPolicy = Combo(CollisionBox) is { Length: > 0 } policy ? policy : "fail";
         _vm.Wildcard = WildcardBox.Text;
         _vm.MappingText = MappingBox.Text;
     }
@@ -223,6 +243,7 @@ public partial class MainWindow : Window
             SetHidden.IsChecked = rules.SetHidden;
             HiddenValue.IsChecked = rules.HiddenValue;
             WindowsSafe.IsChecked = rules.WindowsSafe;
+            SetCombo(CollisionBox, string.IsNullOrWhiteSpace(rules.CollisionPolicy) ? "fail" : rules.CollisionPolicy);
         }
         finally
         {

@@ -98,6 +98,7 @@ public sealed class Rules
     public bool WindowsSafe { get; set; } = true;
     public string Operation { get; set; } = "rename";
     public string DestDir { get; set; } = "";
+    public string CollisionPolicy { get; set; } = "fail";
 
     public bool SetTimestamps { get; set; }
     public string TsModified { get; set; } = "";
@@ -119,15 +120,15 @@ public sealed class PreviewRow
 {
     public required string Path { get; init; }
     public required string OldName { get; init; }
-    public required string NewName { get; init; }
-    public required string NewPath { get; init; }
+    public required string NewName { get; set; }
+    public required string NewPath { get; set; }
     public bool IsDir { get; init; }
     public long Size { get; init; }
     public string? Created { get; init; }
     public string? Modified { get; init; }
     public string? Accessed { get; init; }
     public bool Selected { get; init; }
-    public bool Changed { get; init; }
+    public bool Changed { get; set; }
     public string Status { get; set; } = "ok";
     public string Warning { get; set; } = "";
     public string Folder { get; init; } = "";

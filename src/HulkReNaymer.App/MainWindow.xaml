@@ -5,7 +5,10 @@
         Height="900" Width="1440"
         MinHeight="700" MinWidth="1100"
         Background="{StaticResource BgBrush}"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        AllowDrop="True"
+        PreviewDragOver="OnPreviewDragOver"
+        PreviewDrop="OnPreviewDrop">
   <DockPanel>
     <Border DockPanel.Dock="Top" Background="{StaticResource Bg2Brush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="14,10">
       <Grid>
@@ -54,6 +57,12 @@
           <Button Content="Log" Style="{StaticResource GhostButton}" Command="{Binding ShowLogCommand}"/>
         </StackPanel>
         <StackPanel Grid.Column="2" Orientation="Horizontal">
+          <TextBlock Text="On collision" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+          <ComboBox x:Name="CollisionBox" Width="140" SelectedIndex="0" SelectionChanged="OnRulesChanged" VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="When the new name is already used">
+            <ComboBoxItem Content="Stop" Tag="fail"/>
+            <ComboBoxItem Content="Skip" Tag="skip"/>
+            <ComboBoxItem Content="Append number" Tag="append"/>
+          </ComboBox>
           <Button Content="Reset rules" Style="{StaticResource GhostButton}" Click="ResetClicked"/>
           <Button Content="Undo" Style="{StaticResource GhostButton}" Command="{Binding UndoCommand}"/>
           <Button Content="Smash Rename" Style="{StaticResource SmashButton}" Command="{Binding RenameCommand}" IsEnabled="{Binding CanRename}"/>
@@ -71,7 +80,7 @@
             </StackPanel>
             <CheckBox x:Name="RegexOn" Content="Enable"/>
             <TextBox x:Name="RegexPattern" Tag="hint" ToolTip="Match pattern"/>
-            <TextBox x:Name="RegexReplace" ToolTip="Replace with (\1 or $1)"/>
+            <TextBox x:Name="RegexReplace" ToolTip="Replace with $1 groups, {name}, $YYYY, ${n:3}"/>
             <ComboBox x:Name="RegexApplyTo" SelectedIndex="0">
               <ComboBoxItem Content="Name" Tag="name"/>
               <ComboBoxItem Content="Extension" Tag="ext"/>
@@ -111,7 +120,7 @@
             </StackPanel>
             <CheckBox x:Name="ReplaceOn" Content="Enable"/>
             <TextBox x:Name="FindBox" ToolTip="Find"/>
-            <TextBox x:Name="ReplaceWithBox" ToolTip="Replace with (blank = delete)"/>
+            <TextBox x:Name="ReplaceWithBox" ToolTip="Replace with tokens: {name}, $YYYY, ${n:3} (blank = delete)"/>
             <CheckBox x:Name="ReplaceAllBox" Content="All" IsChecked="True"/>
             <CheckBox x:Name="ReplaceCaseBox" Content="Match case" IsChecked="True"/>
           </StackPanel>
@@ -287,7 +296,7 @@
               <ComboBoxItem Content="Copy to folder" Tag="copy"/>
               <ComboBoxItem Content="Move to folder" Tag="move"/>
             </ComboBox>
-            <TextBox x:Name="DestDirBox" ToolTip="Destination folder"/>
+            <TextBox x:Name="DestDirBox" ToolTip="Destination folder. Tokens work: {folder}, {yyyy}, $YYYY"/>
           </StackPanel>
         </Border>
         <Border Style="{StaticResource RuleCard}">

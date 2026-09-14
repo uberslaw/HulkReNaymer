@@ -60,6 +60,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] string nameRegex = "";
     [ObservableProperty] string jsCode = "";
 
+    List<string>? _explicitPaths;
+
     public ObservableCollection<FileRow> Files { get; } = [];
     public ObservableCollection<PlaceItem> Places { get; } = [];
     public ObservableCollection<PlaceItem> Folders { get; } = [];
@@ -72,7 +74,8 @@ public partial class MainViewModel : ObservableObject
         "Photo date + sequence",
         "Title case + underscores",
         "Prefix parent folder",
-        "MP3 artist - title"
+        "MP3 artist - title",
+        "Search and replace"
     ];
 
     public Rules Rules { get; private set; } = new();
@@ -112,6 +115,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
         CurrentPath = System.IO.Path.GetFullPath(target);
+        _explicitPaths = null;
         Files.Clear();
         Folders.Clear();
         var parent = Directory.GetParent(CurrentPath);
@@ -120,6 +124,88 @@ public partial class MainViewModel : ObservableObject
         foreach (var (name, child) in Scanner.ListChildren(CurrentPath))
             Folders.Add(new PlaceItem { Label = name, Path = child });
         Refresh();
+    }
+
+    public void OpenFromCommandLine(IEnumerable<string> args)
+    {
+        var extras = args
+            .Where(arg => File.Exists(arg) || Directory.Exists(arg))
+            .ToList();
+        if (extras.Count > 0)
+            OpenItems(extras);
+        else
+            OpenPath(CurrentPath);
+    }
+
+    public void OpenItems(IEnumerable<string> paths)
+    {
+        var existing = paths
+            .Select(p =>
+            {
+                try { return System.IO.Path.GetFullPath(p); }
+                catch { return ""; }
+            })
+            .Where(p => p.Length > 0 && (File.Exists(p) || Directory.Exists(p)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (existing.Count == 0)
+        {
+            Stats = "No dropped or passed files were found.";
+            return;
+        }
+        if (existing.Count == 1 && Directory.Exists(existing[0]) && !File.Exists(existing[0]))
+        {
+            OpenPath(existing[0]);
+            return;
+        }
+        _explicitPaths = existing;
+        CurrentPath = CommonParent(existing);
+        Files.Clear();
+        Folders.Clear();
+        var parent = Directory.GetParent(CurrentPath);
+        if (parent is not null)
+            Folders.Add(new PlaceItem { Label = "… parent", Path = parent.FullName });
+        foreach (var (name, child) in Scanner.ListChildren(CurrentPath))
+            Folders.Add(new PlaceItem { Label = name, Path = child });
+        Refresh();
+        Stats = $"{existing.Count} dropped or passed items  ·  {Stats}";
+    }
+
+    (List<FileItem> Items, string Warning) ListItems()
+    {
+        if (_explicitPaths is { Count: > 0 })
+            return Scanner.FromPaths(_explicitPaths, IncludeFiles, IncludeFolders || _explicitPaths.Any(Directory.Exists), IncludeHidden);
+        return Scanner.Scan(CurrentPath, Recurse, IncludeFiles, IncludeFolders, Wildcard, NameRegex, includeHidden: IncludeHidden);
+    }
+
+    void ReloadCurrent()
+    {
+        if (_explicitPaths is { Count: > 0 })
+            OpenItems(_explicitPaths);
+        else
+            OpenPath(CurrentPath);
+    }
+
+    static string CommonParent(IReadOnlyList<string> paths)
+    {
+        var first = System.IO.Path.GetDirectoryName(paths[0]);
+        if (Directory.Exists(paths[0]) && !File.Exists(paths[0]))
+            first = paths[0];
+        if (string.IsNullOrEmpty(first)) return paths[0];
+        var parent = first;
+        foreach (var path in paths.Skip(1))
+        {
+            var dir = Directory.Exists(path) && !File.Exists(path) ? path : System.IO.Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(dir)) continue;
+            while (!dir.StartsWith(parent.TrimEnd(System.IO.Path.DirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                   && !string.Equals(dir, parent, StringComparison.OrdinalIgnoreCase))
+            {
+                var up = Directory.GetParent(parent);
+                if (up is null) return parent;
+                parent = up.FullName;
+            }
+        }
+        return parent;
     }
 
     [RelayCommand]
@@ -133,14 +219,7 @@ public partial class MainViewModel : ObservableObject
     public void Refresh()
     {
         RequestCollectRules?.Invoke();
-        var (items, warning) = Scanner.Scan(
-            CurrentPath,
-            Recurse,
-            IncludeFiles,
-            IncludeFolders,
-            Wildcard,
-            NameRegex,
-            includeHidden: IncludeHidden);
+        var (items, warning) = ListItems();
         var hadRows = Files.Count > 0;
         var selected = Files.Where(f => f.IsSelected).Select(f => f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
         FileSelection.Apply(items, selected, hadRows);
@@ -173,8 +252,11 @@ public partial class MainViewModel : ObservableObject
         }
         var changed = rows.Count(r => r.Changed && r.Status == "ok");
         var conflicts = rows.Count(r => r.Status == "conflict");
-        var invalid = rows.Count(r => r.Status is "invalid" or "exists");
-        CanRename = changed > 0 && conflicts == 0 && invalid == 0;
+        var invalid = rows.Count(r => r.Status == "invalid");
+        var exists = rows.Count(r => r.Status == "exists");
+        var skipped = rows.Count(r => r.Status == "skipped");
+        var blocking = Rules.CollisionPolicy is "skip" or "append" ? invalid : invalid + exists;
+        CanRename = changed > 0 && conflicts == 0 && blocking == 0;
         var bits = new[]
         {
             $"{rows.Count} listed",
@@ -182,6 +264,8 @@ public partial class MainViewModel : ObservableObject
             $"{changed} will change",
             $"{rows.Count(r => r.Status == "unchanged")} unchanged",
             $"{conflicts} conflicts",
+            $"{exists} exist",
+            $"{skipped} skipped",
             $"{invalid} invalid"
         };
         Stats = string.IsNullOrEmpty(warning) ? string.Join("  ·  ", bits) : string.Join("  ·  ", bits) + "  ·  " + warning;
@@ -192,7 +276,7 @@ public partial class MainViewModel : ObservableObject
     {
         RequestCollectRules?.Invoke();
         var selected = Files.Where(f => f.IsSelected).Select(f => f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var (items, _) = Scanner.Scan(CurrentPath, Recurse, IncludeFiles, IncludeFolders, Wildcard, NameRegex, includeHidden: IncludeHidden);
+        var (items, _) = ListItems();
         foreach (var item in items)
             item.Selected = selected.Contains(item.Path);
         var rows = RenameEngine.BuildPreview(items, Rules);
@@ -208,7 +292,7 @@ public partial class MainViewModel : ObservableObject
         MappingText = "";
         SelectedPreset = "";
         RulesChanged?.Invoke();
-        OpenPath(CurrentPath);
+        ReloadCurrent();
         Stats = result.Message + "  ·  " + Stats;
         if (result.Failed.Count > 0)
             MessageBox.Show(string.Join("\n", result.Failed.Select(f => f.Path + ": " + f.Error)), "Some items failed");
@@ -218,7 +302,7 @@ public partial class MainViewModel : ObservableObject
     public void Undo()
     {
         var result = ApplyService.UndoLast();
-        OpenPath(CurrentPath);
+        ReloadCurrent();
         Stats = result.Message + "  ·  " + Stats;
     }
 
@@ -268,6 +352,7 @@ public partial class MainViewModel : ObservableObject
         if (fav is null) return;
         Rules = fav.Rules.Clone();
         OnPropertyChanged(nameof(Rules));
+        RulesChanged?.Invoke();
         Refresh();
     }
 
@@ -292,9 +377,11 @@ public partial class MainViewModel : ObservableObject
             "Title case + underscores" => new Rules { CaseMode = "title", ReplaceEnabled = true, Find = " ", ReplaceWith = "_" },
             "Prefix parent folder" => new Rules { FolderEnabled = true, FolderMode = "prefix", FolderSeparator = "_" },
             "MP3 artist - title" => new Rules { NameEnabled = true, NameMode = "fixed", NameFixed = "{id3.artist} - {id3.title}" },
+            "Search and replace" => new Rules { RegexEnabled = true, RegexApplyTo = "name" },
             _ => new Rules { WindowsSafe = true }
         };
         OnPropertyChanged(nameof(Rules));
+        RulesChanged?.Invoke();
         Refresh();
     }
 

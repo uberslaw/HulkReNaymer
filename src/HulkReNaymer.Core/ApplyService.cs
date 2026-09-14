@@ -37,7 +37,11 @@ public static class ApplyService
             };
         }
 
-        if (rules.Operation is "copy" or "move" && !string.IsNullOrWhiteSpace(rules.DestDir) && Path.IsPathRooted(rules.DestDir))
+        if (rules.Operation is "copy" or "move"
+            && !string.IsNullOrWhiteSpace(rules.DestDir)
+            && Path.IsPathRooted(rules.DestDir)
+            && !rules.DestDir.Contains('{')
+            && !rules.DestDir.Contains('$'))
             Directory.CreateDirectory(rules.DestDir);
 
         var failed = new List<FailedItem>();

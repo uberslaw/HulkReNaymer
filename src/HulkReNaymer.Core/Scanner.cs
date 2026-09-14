@@ -114,6 +114,38 @@ public static class Scanner
         return (items, warning);
     }
 
+    public static (List<FileItem> Items, string Warning) FromPaths(
+        IEnumerable<string> paths,
+        bool includeFiles = true,
+        bool includeFolders = true,
+        bool includeHidden = false)
+    {
+        var items = new List<FileItem>();
+        foreach (var raw in paths)
+        {
+            string path;
+            try { path = Path.GetFullPath(raw); }
+            catch { continue; }
+            var name = Path.GetFileName(path);
+            if (!includeHidden && name.StartsWith('.')) continue;
+            try
+            {
+                if (Directory.Exists(path) && !File.Exists(path))
+                {
+                    if (!includeFolders) continue;
+                    items.Add(MetadataReader.Describe(path));
+                }
+                else if (File.Exists(path))
+                {
+                    if (!includeFiles) continue;
+                    items.Add(MetadataReader.Describe(path));
+                }
+            }
+            catch { /* skip unreadable */ }
+        }
+        return (items, "");
+    }
+
     public static IEnumerable<(string Name, string Path)> ListChildren(string path)
     {
         if (!Directory.Exists(path)) yield break;

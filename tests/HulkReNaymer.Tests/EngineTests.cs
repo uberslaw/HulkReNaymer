@@ -154,6 +154,75 @@ public class EngineTests
     }
 
     [Fact]
+    public void ReplaceAndRegex_ExpandDateAndCounterAliases()
+    {
+        var item = Item("QLD Office Report.docx");
+        Assert.Equal("QLD 2026 Report.docx",
+            RenameEngine.ApplyRules(item, new Rules
+            {
+                ReplaceEnabled = true,
+                Find = "Office",
+                ReplaceWith = "$YYYY"
+            }, 1).NewName);
+        Assert.Equal("Shot007.jpg",
+            RenameEngine.ApplyRules(Item("Photo.jpg"), new Rules
+            {
+                ReplaceEnabled = true,
+                Find = "Photo",
+                ReplaceWith = "Shot${n:3}"
+            }, 7).NewName);
+        Assert.Equal("Invoice_2026.pdf",
+            RenameEngine.ApplyRules(Item("Invoice 99.pdf"), new Rules
+            {
+                RegexEnabled = true,
+                RegexPattern = @"^(Invoice) (\d+)$",
+                RegexReplace = "$1_$YYYY"
+            }, 1).NewName);
+        Assert.Equal("09-00-Report.docx",
+            RenameEngine.ApplyRules(item, new Rules
+            {
+                ReplaceEnabled = true,
+                Find = "QLD Office ",
+                ReplaceWith = "$MM-$mm-"
+            }, 1).NewName);
+        Assert.Equal("Item007.txt",
+            RenameEngine.ApplyRules(Item("Item.txt"), new Rules
+            {
+                AddEnabled = true,
+                Suffix = "${padding=3}"
+            }, 7).NewName);
+    }
+
+    [Fact]
+    public void DestinationFolder_ExpandsTokens()
+    {
+        var item = Item("Report.docx");
+        var rows = RenameEngine.BuildPreview([item], new Rules
+        {
+            Operation = "copy",
+            DestDir = "{yyyy}-{mm}"
+        });
+        Assert.Equal(Path.Combine("/tmp/project", "2026-09", "Report.docx"), rows[0].NewPath);
+    }
+
+    [Fact]
+    public void CollisionPolicy_SkipAndAppend()
+    {
+        var clash = RenameEngine.BuildPreview(
+            [Item("a.txt"), Item("b.txt")],
+            new Rules { NameEnabled = true, NameMode = "fixed", NameFixed = "same", CollisionPolicy = "skip" });
+        Assert.All(clash, row => Assert.Equal("skipped", row.Status));
+
+        var appended = RenameEngine.BuildPreview(
+            [Item("a.txt"), Item("b.txt")],
+            new Rules { NameEnabled = true, NameMode = "fixed", NameFixed = "same", CollisionPolicy = "append" });
+        Assert.Equal(new[] { "same.txt", "same_001.txt" }, appended.Select(r => r.NewName));
+        Assert.All(appended, row => Assert.Equal("ok", row.Status));
+        Assert.Equal("", appended[0].Warning);
+        Assert.Contains("Appended", appended[1].Warning);
+    }
+
+    [Fact]
     public void JavaScript_DoesNotExposeClrAndStopsRunawayLoops()
     {
         var clr = RenameEngine.ApplyRules(Item("Track01.txt"), new Rules

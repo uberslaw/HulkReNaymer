@@ -74,6 +74,74 @@ public class ApplyTests
     }
 
     [Fact]
+    public void CollisionPolicy_SkipLeavesExistingTarget_AppendAddsNumber()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hulk-collide-" + Guid.NewGuid().ToString("N"));
+        var data = Path.Combine(root, "data");
+        Directory.CreateDirectory(root);
+        Environment.SetEnvironmentVariable("HULKRENAYMER_DATA", data);
+        File.WriteAllText(Path.Combine(root, "source.txt"), "src");
+        File.WriteAllText(Path.Combine(root, "taken.txt"), "taken");
+        try
+        {
+            FileItem Item(string name) => MetadataReader.Describe(Path.Combine(root, name));
+            var skipRules = new Rules
+            {
+                NameEnabled = true,
+                NameMode = "fixed",
+                NameFixed = "taken",
+                CollisionPolicy = "skip"
+            };
+            var skipped = RenameEngine.BuildPreview([Item("source.txt")], skipRules);
+            Assert.Equal("skipped", skipped[0].Status);
+            var skipResult = ApplyService.Commit(skipped, skipRules);
+            Assert.Equal(0, skipResult.Renamed);
+            Assert.True(File.Exists(Path.Combine(root, "source.txt")));
+
+            var appendRules = new Rules
+            {
+                NameEnabled = true,
+                NameMode = "fixed",
+                NameFixed = "taken",
+                CollisionPolicy = "append"
+            };
+            var appended = RenameEngine.BuildPreview([Item("source.txt")], appendRules);
+            Assert.Equal("taken_001.txt", appended[0].NewName);
+            Assert.Equal("ok", appended[0].Status);
+            var result = ApplyService.Commit(appended, appendRules);
+            Assert.Equal(1, result.Renamed);
+            Assert.True(File.Exists(Path.Combine(root, "taken_001.txt")));
+            Assert.Equal("src", File.ReadAllText(Path.Combine(root, "taken_001.txt")));
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void Scanner_FromPaths_KeepsExplicitFiles()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hulk-paths-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var keep = Path.Combine(root, "keep.txt");
+        var extra = Path.Combine(root, "extra.txt");
+        File.WriteAllText(keep, "k");
+        File.WriteAllText(extra, "e");
+        try
+        {
+            var (items, warning) = Scanner.FromPaths([keep, extra + ".missing"]);
+            Assert.Equal("", warning);
+            Assert.Single(items);
+            Assert.Equal("keep.txt", items[0].Name);
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
     public void SeedAndExif()
     {
         var root = Path.Combine(Path.GetTempPath(), "hulk-seed-" + Guid.NewGuid().ToString("N"));

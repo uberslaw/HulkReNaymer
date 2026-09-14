@@ -10,7 +10,6 @@ public static class RenameEngine
     static readonly Regex DigitRe = new(@"\d", RegexOptions.Compiled);
     static readonly Regex SymbolRe = new(@"[\p{P}\p{S}]", RegexOptions.Compiled);
     static readonly Regex LetterRe = new(@"\p{L}", RegexOptions.Compiled);
-    static readonly Regex TokenRe = new(@"\{([^{}]+)\}", RegexOptions.Compiled);
     static readonly NaturalStringComparer Natural = new();
 
     public static (string NewName, string Warning) ApplyRules(FileItem item, Rules rules, int sequence)
@@ -49,8 +48,9 @@ public static class RenameEngine
         {
             try
             {
+                var regexReplace = Tokens.Expand(rules.RegexReplace, item, rules, sequence, preserveRegexGroups: true);
                 (stem, ext) = ApplyToParts(stem, ext, rules.RegexApplyTo,
-                    value => RegexSub(rules.RegexPattern, rules.RegexReplace, value));
+                    value => RegexSub(rules.RegexPattern, regexReplace, value));
             }
             catch (ArgumentException ex)
             {
@@ -61,13 +61,13 @@ public static class RenameEngine
         if (rules.NameEnabled)
         {
             if (rules.NameMode == "fixed")
-                stem = ExpandTokens(rules.NameFixed, item, rules, sequence);
+                stem = Tokens.Expand(rules.NameFixed, item, rules, sequence);
             else if (rules.NameMode == "remove")
                 stem = "";
 
             if (rules.ExtMode == "fixed")
             {
-                var fixedExt = ExpandTokens(rules.ExtFixed, item, rules, sequence).TrimStart('.');
+                var fixedExt = Tokens.Expand(rules.ExtFixed, item, rules, sequence).TrimStart('.');
                 ext = string.IsNullOrEmpty(fixedExt) ? "" : "." + fixedExt;
             }
             else if (rules.ExtMode == "remove") ext = "";
@@ -77,8 +77,9 @@ public static class RenameEngine
 
         if (rules.ReplaceEnabled && !string.IsNullOrEmpty(rules.Find))
         {
+            var replaceWith = Tokens.Expand(rules.ReplaceWith, item, rules, sequence);
             (stem, ext) = ApplyToParts(stem, ext, rules.ReplaceApplyTo,
-                value => FindReplace(value, rules.Find, rules.ReplaceWith, rules.ReplaceAll, rules.ReplaceCaseSensitive));
+                value => FindReplace(value, rules.Find, replaceWith, rules.ReplaceAll, rules.ReplaceCaseSensitive));
         }
 
         if (rules.CaseMode != "same")
@@ -92,9 +93,9 @@ public static class RenameEngine
 
         if (rules.AddEnabled)
         {
-            var prefix = ExpandTokens(rules.Prefix, item, rules, sequence);
-            var suffix = ExpandTokens(rules.Suffix, item, rules, sequence);
-            var inserted = ExpandTokens(rules.Insert, item, rules, sequence);
+            var prefix = Tokens.Expand(rules.Prefix, item, rules, sequence);
+            var suffix = Tokens.Expand(rules.Suffix, item, rules, sequence);
+            var inserted = Tokens.Expand(rules.Insert, item, rules, sequence);
             if (!string.IsNullOrEmpty(prefix)) stem = prefix + stem;
             if (rules.InsertAt > 0 && !string.IsNullOrEmpty(inserted))
                 stem = InsertAt(stem, inserted, rules.InsertAt);
@@ -106,7 +107,7 @@ public static class RenameEngine
 
         if (rules.DateEnabled)
         {
-            var stamp = FormatDate(ItemDate(item, rules.DateSource), rules.DateFormat);
+            var stamp = Tokens.Expand("{date}", item, rules, sequence);
             stem = ApplyPosition(stem, stamp, rules.DatePosition, rules.DateSeparator);
         }
 
@@ -167,7 +168,7 @@ public static class RenameEngine
 
             var seq = sequences.GetValueOrDefault(item.Path, rules.NumberStart);
             var (newName, warning) = ApplyRules(item, rules, seq);
-            var newPath = DestinationPath(item, newName, rules);
+            var newPath = DestinationPath(item, newName, rules, seq);
             var status = "ok";
             if (string.IsNullOrEmpty(newName) || newName is "." or "..")
             {
@@ -210,7 +211,88 @@ public static class RenameEngine
                 }
             }
         }
+
+        ApplyCollisionPolicy(rows, rules);
         return rows;
+    }
+
+    static void ApplyCollisionPolicy(List<PreviewRow> rows, Rules rules)
+    {
+        var policy = string.IsNullOrWhiteSpace(rules.CollisionPolicy) ? "fail" : rules.CollisionPolicy;
+        if (policy is not "skip" and not "append") return;
+
+        if (policy == "skip")
+        {
+            foreach (var row in rows)
+            {
+                if (row.Selected && row.Status is "conflict" or "exists")
+                {
+                    row.Status = "skipped";
+                    row.Changed = false;
+                    if (string.IsNullOrEmpty(row.Warning))
+                        row.Warning = "Skipped due to name collision";
+                }
+            }
+            return;
+        }
+
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            if (row.Selected && row.Status is "ok" or "unchanged")
+                taken.Add(KeyFor(row.NewPath));
+        }
+
+        foreach (var row in rows)
+        {
+            if (!row.Selected || row.Status is not ("conflict" or "exists")) continue;
+            var desired = row.NewPath;
+            var unique = NextFreePath(desired, row.Path, taken);
+            if (unique is null)
+            {
+                row.Status = "skipped";
+                row.Changed = false;
+                row.Warning = "Could not find a free name";
+                continue;
+            }
+            row.NewPath = unique;
+            row.NewName = Path.GetFileName(unique);
+            row.Status = "ok";
+            row.Changed = !string.Equals(unique, row.Path, StringComparison.OrdinalIgnoreCase);
+            row.Warning = string.Equals(KeyFor(unique), KeyFor(desired), StringComparison.OrdinalIgnoreCase)
+                ? ""
+                : "Appended a number to avoid a collision";
+            taken.Add(KeyFor(unique));
+        }
+    }
+
+    static string? NextFreePath(string desired, string originalPath, HashSet<string> taken)
+    {
+        bool IsFree(string path)
+        {
+            var key = KeyFor(path);
+            if (taken.Contains(key)) return false;
+            try
+            {
+                if (File.Exists(path) || Directory.Exists(path))
+                {
+                    var same = string.Equals(Path.GetFullPath(path), Path.GetFullPath(originalPath), StringComparison.OrdinalIgnoreCase);
+                    return same;
+                }
+            }
+            catch { /* treat as free */ }
+            return true;
+        }
+
+        if (IsFree(desired)) return desired;
+        var dir = Path.GetDirectoryName(desired) ?? "";
+        var (stem, ext) = Names.SplitName(Path.GetFileName(desired));
+        for (var i = 1; i <= 9999; i++)
+        {
+            var candidate = Path.Combine(dir, Names.JoinName($"{stem}_{i:000}", ext));
+            if (IsFree(candidate)) return candidate;
+        }
+        return null;
     }
 
     static PreviewRow MakeRow(FileItem item, string newName, string newPath, bool selected, bool changed, string status, string warning = "") =>
@@ -288,11 +370,11 @@ public static class RenameEngine
         return sequences;
     }
 
-    static string DestinationPath(FileItem item, string newName, Rules rules)
+    static string DestinationPath(FileItem item, string newName, Rules rules, int sequence)
     {
         if (rules.Operation == "rename" || string.IsNullOrWhiteSpace(rules.DestDir))
             return Path.Combine(item.Parent, newName);
-        var destRoot = rules.DestDir;
+        var destRoot = Tokens.Expand(rules.DestDir, item, rules, sequence);
         if (!Path.IsPathRooted(destRoot))
             destRoot = Path.Combine(item.Parent, destRoot);
         return Path.Combine(destRoot, newName);
@@ -446,15 +528,6 @@ public static class RenameEngine
         };
     }
 
-    static DateTime? ItemDate(FileItem item, string source) => source switch
-    {
-        "created" => item.Created,
-        "accessed" => item.Accessed,
-        "now" => DateTime.Now,
-        "exif" => ParseExifDate(item) ?? item.Modified,
-        _ => item.Modified
-    };
-
     /// <summary>
     /// Windows filenames are case-insensitive, so mapping keys must match regardless of the dictionary comparer.
     /// Exact match still wins when a case-sensitive dictionary contains both "Photo.jpg" and "photo.jpg".
@@ -479,7 +552,7 @@ public static class RenameEngine
         return false;
     }
 
-    static DateTime? ParseExifDate(FileItem item)
+    internal static DateTime? ParseExifDate(FileItem item)
     {
         if (!item.Exif.TryGetValue("date", out var raw) && !item.Exif.TryGetValue("DateTimeOriginal", out raw))
             return null;
@@ -503,53 +576,4 @@ public static class RenameEngine
         return null;
     }
 
-    static string FormatDate(DateTime? value, string format)
-    {
-        if (value is null) return "";
-        var converted = Names.ConvertDateFormat(format);
-        try { return value.Value.ToString(converted, CultureInfo.InvariantCulture); }
-        catch { return value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture); }
-    }
-
-    static string ExpandTokens(string template, FileItem item, Rules rules, int sequence)
-    {
-        if (string.IsNullOrEmpty(template) || !template.Contains('{')) return template;
-        var chosen = ItemDate(item, rules.DateSource);
-        var pad = Math.Max(rules.NumberPad, 1);
-        var values = new Dictionary<string, string>
-        {
-            ["name"] = item.Stem,
-            ["ext"] = item.Ext.TrimStart('.'),
-            ["folder"] = item.Folder,
-            ["parent"] = item.Folder,
-            ["n"] = sequence.ToString().PadLeft(pad, '0'),
-            ["N"] = sequence.ToString(),
-            ["size"] = item.Size.ToString(),
-            ["date"] = FormatDate(chosen, rules.DateFormat),
-            ["yyyy"] = FormatDate(chosen, "yyyy"),
-            ["mm"] = FormatDate(chosen, "MM"),
-            ["dd"] = FormatDate(chosen, "dd"),
-            ["hh"] = FormatDate(chosen, "HH"),
-            ["nn"] = FormatDate(chosen, "mm"),
-            ["ss"] = FormatDate(chosen, "ss"),
-            ["exif.date"] = item.Exif.GetValueOrDefault("date", ""),
-            ["exif.width"] = item.Exif.GetValueOrDefault("width", ""),
-            ["exif.height"] = item.Exif.GetValueOrDefault("height", ""),
-            ["id3.artist"] = item.Id3.GetValueOrDefault("artist", ""),
-            ["id3.album"] = item.Id3.GetValueOrDefault("album", ""),
-            ["id3.title"] = item.Id3.GetValueOrDefault("title", "")
-        };
-        return TokenRe.Replace(template, match =>
-        {
-            var key = match.Groups[1].Value;
-            if (key.StartsWith("n:", StringComparison.Ordinal))
-            {
-                if (!int.TryParse(key[2..], out var width)) width = pad;
-                return sequence.ToString().PadLeft(Math.Max(width, 1), '0');
-            }
-            if (key.StartsWith("date:", StringComparison.Ordinal))
-                return FormatDate(ItemDate(item, key[5..]), rules.DateFormat);
-            return values.TryGetValue(key, out var value) ? value : match.Value;
-        });
-    }
 }
