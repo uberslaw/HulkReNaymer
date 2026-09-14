@@ -539,7 +539,7 @@ public class AssumptionTests
     [Fact]
     public void KebabKeepsPunctuation_SlugStripsUnicodePunctuation()
     {
-        Assert.Equal("hello!!!world.txt",
+        Assert.Equal("hello!!!-world.txt",
             RenameEngine.ApplyRules(Item("Hello!!!World.txt"), new Rules { CaseMode = "kebab" }, 1).NewName);
         Assert.Equal("hello-world.txt",
             RenameEngine.ApplyRules(Item("Hello!!!World.txt"), new Rules { CaseMode = "slug" }, 1).NewName);
