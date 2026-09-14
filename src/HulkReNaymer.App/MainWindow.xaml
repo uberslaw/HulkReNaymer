@@ -368,7 +368,7 @@
         </DockPanel>
       </Border>
       <DataGrid Grid.Column="1" ItemsSource="{Binding Files}" HeadersVisibility="Column"
-                IsReadOnly="False" CanUserDeleteRows="False" CanUserResizeRows="False">
+                IsReadOnly="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False">
         <DataGrid.Columns>
           <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="36"/>
           <DataGridTextColumn Header="Name" Binding="{Binding OldName}" Width="*" IsReadOnly="True"/>

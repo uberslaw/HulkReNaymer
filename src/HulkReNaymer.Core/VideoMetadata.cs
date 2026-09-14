@@ -37,7 +37,8 @@ public static class VideoMetadata
             /* not a readable media file */
         }
 
-        if (ExifToolReader.IsAvailable)
+        // Same opt-in as photos: never spawn ExifTool just because it is on PATH.
+        if (ExifToolReader.ExplicitlyConfigured)
         {
             foreach (var (key, value) in ExifToolReader.Read(path))
             {

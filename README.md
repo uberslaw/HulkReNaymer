@@ -49,7 +49,7 @@ Tokens work in prefix, suffix, insert, fixed names, find/replace, regex replace,
 
 `{name}` `{ext}` `{folder}` `{n}` `{n:3}` `{date}` `{date:exif}` `{yyyy}` `{mm}` `{dd}` `{exif.date}` `{exif.make}` `{exif.model}` `{exif.camera}` `{id3.artist}` `{id3.album}` `{id3.title}` `{size}` `{git.branch}` `{hash:8}` `{video.date}` `{video.duration}`
 
-`{git.branch}` is the current branch when the file lives in a git repo. `{hash}` / `{hash:8}` is the SHA-256 of the file contents (first N hex characters). `{video.date}` / `{video.duration}` come from TagLib when the file is a readable video; if `exiftool` is on `PATH` or `HULKRENAYMER_EXIFTOOL` points at `exiftool.exe`, richer tags are merged. ExifTool is never required.
+`{git.branch}` is the current branch when the file lives in a git repo (empty in detached HEAD or when git is missing). `{hash}` / `{hash:8}` is the SHA-256 of that file's bytes (first N lowercase hex characters; empty for folders). `{video.date}` / `{video.duration}` come from TagLib when the file is a readable video. Set `HULKRENAYMER_EXIFTOOL` to an `exiftool` binary to merge extra tags; a copy on `PATH` is **not** auto-run (one spawn per file). ExifTool is never required.
 
 The WPF token palette inserts chips into the focused token box (prefix, suffix, insert, fixed name, replace, regex replace, destination).
 

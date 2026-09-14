@@ -106,9 +106,6 @@ public static class CliApp
                 files.Add(full);
         }
 
-        if (files.Count == 0 && dirs.Count == 1)
-            return Scanner.Scan(dirs[0], opt.Recurse, includeFiles: true, includeFolders: opt.Folders, wildcard: opt.Wildcard, includeHidden: opt.Hidden);
-
         var items = new List<FileItem>();
         var warning = "";
         if (files.Count > 0)
@@ -118,13 +115,18 @@ public static class CliApp
         }
         foreach (var dir in dirs)
         {
-            if (opt.Recurse || opt.ScanDirs)
+            // One folder is always scanned (same as WPF OpenPath / `preview folder`).
+            // Several folders without --folders are scanned too (`preview photos videos`).
+            // --folders without recurse means "these folders are the items", except the
+            // single-folder case which still lists children with includeFolders.
+            var scanChildren = opt.Recurse || opt.ScanDirs || !opt.Folders || (files.Count == 0 && dirs.Count == 1);
+            if (scanChildren)
             {
                 var (found, warn) = Scanner.Scan(dir, opt.Recurse, includeFiles: true, includeFolders: opt.Folders, wildcard: opt.Wildcard, includeHidden: opt.Hidden);
                 items.AddRange(found);
                 if (!string.IsNullOrEmpty(warn)) warning = warn;
             }
-            else if (opt.Folders)
+            else
             {
                 var (found, _) = Scanner.FromPaths([dir], includeFiles: false, includeFolders: true, includeHidden: opt.Hidden);
                 items.AddRange(found);
@@ -298,7 +300,8 @@ public static class CliApp
         sb.AppendLine("Options:");
         sb.AppendLine("  -r, --recurse           Scan folders recursively");
         sb.AppendLine("  -w, --wildcard PATTERN  Filter names (default *)");
-        sb.AppendLine("      --folders           Include folders as rename targets");
+        sb.AppendLine("      --folders           Rename the folder items themselves (default: scan their contents)");
+        sb.AppendLine("      --scan-dirs         Force scanning directory arguments");
         sb.AppendLine("      --hidden            Include hidden / dot files");
         sb.AppendLine("      --find TEXT         Find / replace (use --replace)");
         sb.AppendLine("      --replace TEXT");

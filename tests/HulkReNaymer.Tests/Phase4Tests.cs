@@ -69,7 +69,7 @@ public class Phase4Tests
         Assert.Equal("Gamma", data["model"]);
         Assert.Equal("2026-09-14 09:30:00", data["date"]);
         Assert.Equal("2026-09-14 09:31:00", data["video.date"]);
-        Assert.Equal("65.5", data["video.duration"]);
+        Assert.Equal("01-05", data["video.duration"]);
         Assert.Equal("1920", data["width"]);
 
         var missing = Path.Combine(Path.GetTempPath(), "no-such-exiftool-" + Guid.NewGuid().ToString("N"));
@@ -98,8 +98,13 @@ public class Phase4Tests
         Assert.Contains("Flags: unchecked", iss);
         Assert.Contains("*\\shell\\HulkReNaymer", iss);
         Assert.Contains("Directory\\shell\\HulkReNaymer", iss);
+        Assert.Contains("Directory\\Background\\shell\\HulkReNaymer", iss);
+        Assert.Contains("\"\"%1\"\"", iss);
+        Assert.Contains("\"\"%V\"\"", iss);
         Assert.DoesNotContain("HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", iss);
         Assert.Contains("HKCU:\\Software\\Classes", script);
+        Assert.Contains("`\"%1`\"", script);
+        Assert.Contains("`\"%V`\"", script);
         Assert.Contains("-Remove", script);
         Assert.DoesNotContain("CurrentVersion\\Run", script);
     }

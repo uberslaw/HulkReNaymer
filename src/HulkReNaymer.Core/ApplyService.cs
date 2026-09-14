@@ -216,8 +216,28 @@ public static class ApplyService
     {
         if (GitOps.TryMove(source, dest))
             return;
-        if (isDir) Directory.Move(source, dest);
-        else File.Move(source, dest);
+        try
+        {
+            if (isDir) Directory.Move(source, dest);
+            else File.Move(source, dest);
+        }
+        catch (IOException)
+        {
+            // File.Move / Directory.Move throw across volumes on Unix (and
+            // Directory.Move on Windows). Copy then delete if the source is intact.
+            if (isDir)
+            {
+                if (!Directory.Exists(source) || Directory.Exists(dest)) throw;
+                CopyDirectory(source, dest);
+                Directory.Delete(source, true);
+            }
+            else
+            {
+                if (!File.Exists(source) || File.Exists(dest)) throw;
+                File.Copy(source, dest, overwrite: false);
+                File.Delete(source);
+            }
+        }
     }
 
     static DateTime? ParseIso(string value) =>
