@@ -54,9 +54,11 @@ public partial class LaunchControlWindow : Window, IThemeHighlightHost
                         AppendLog("Not elevated: status, PID, and health still work. From Master Launch Control use Restart as administrator once, leave it open, then Open Launch Control from the card so this window inherits that token. Install Windows service will prompt for UAC if you stay unelevated.");
                 }
                 SeekLogsToEnd();
+                LogVisibleButtons();
                 await RefreshStatusAsync();
                 if (_profile.ShowVenvUi)
                     await RefreshVenvLockersAsync(logEach: false);
+                _ = ObserveAsync(DelayedStatusRefreshAsync(250));
             }
             catch (Exception ex)
             {
@@ -67,6 +69,9 @@ public partial class LaunchControlWindow : Window, IThemeHighlightHost
             }
         };
 
+        // Status tick (2.5s) always runs RefreshStatusAsync, which probes
+        // Windows services AND ProcessFallback.FindRunningPids. A 250ms
+        // follow-up after Start/Run covers the just-spawned GUI exe.
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         _timer.Tick += async (_, _) =>
         {
@@ -134,6 +139,8 @@ public partial class LaunchControlWindow : Window, IThemeHighlightHost
             CompactServicesHost.Visibility = Visibility.Collapsed;
         }
 
+        ExtraButtons.Visibility = Visibility.Visible;
+
         BrowserButton.Visibility = _profile.ShowBrowserButton
             && !string.IsNullOrWhiteSpace(_profile.BrowserUrl)
             ? Visibility.Visible
@@ -173,6 +180,40 @@ public partial class LaunchControlWindow : Window, IThemeHighlightHost
         if (_profile.ShowVenvUi)
             await RefreshVenvLockersAsync(logEach: false);
         AppendLog("Status refresh requested");
+    }
+
+    /// <summary>
+    /// Fire-and-forget status probe after a short delay so FindRunningPids can
+    /// see a just-launched GUI exe (Process.Start + UseShellExecute does not
+    /// keep <c>_child</c>).
+    /// </summary>
+    public void RequestDelayedStatusRefresh(int delayMs = 250)
+    {
+        _ = ObserveAsync(DelayedStatusRefreshAsync(delayMs));
+    }
+
+    private async Task DelayedStatusRefreshAsync(int delayMs)
+    {
+        await Task.Delay(Math.Max(0, delayMs));
+        PumpLogs();
+        await RefreshStatusAsync();
+        if (_profile.ShowVenvUi)
+            await RefreshVenvLockersAsync(logEach: false);
+    }
+
+    private void LogVisibleButtons()
+    {
+        var names = new List<string>();
+        if (StartButton.Visibility == Visibility.Visible)
+            names.Add(Convert.ToString(StartButton.Content) ?? "Start");
+        foreach (var action in StandardAndProfileActions())
+        {
+            if (!string.IsNullOrWhiteSpace(action.Title))
+                names.Add(action.Title);
+        }
+        AppendLog(names.Count == 0
+            ? "Buttons: —"
+            : "Buttons: " + string.Join(", ", names) + " …");
     }
 
     private readonly Dictionary<string, TextBlock> _compactServiceStatus = new(StringComparer.OrdinalIgnoreCase);
@@ -787,8 +828,12 @@ public partial class LaunchControlWindow : Window, IThemeHighlightHost
             else if (stopping) { status = "Stopping"; brush = (Brush)FindResource("StatusStoppingBrush"); }
             else if (running || health.Ok || childAlive)
             {
-                status = health.Ok || running ? "Running" : "Unreachable";
-                brush = health.Ok || running
+                // childAlive includes ProcessFallback.FindRunningPids. Products
+                // without a HealthUrl / Windows service (HulkReNaymer) must not
+                // be painted Unreachable just because the exe is alive.
+                var live = health.Ok || running || childAlive;
+                status = live ? "Running" : "Unreachable";
+                brush = live
                     ? (Brush)FindResource("StatusRunningBrush")
                     : (Brush)FindResource("StatusUnreachableBrush");
             }
@@ -820,10 +865,18 @@ public partial class LaunchControlWindow : Window, IThemeHighlightHost
                     stopBtn.IsEnabled = info.Exists && runningSvc;
             }
 
-            HealthLine.Text = FormatHealthLine(health);
-            HealthLine.Foreground = health.Ok
-                ? (Brush)FindResource("StatusRunningBrush")
-                : (Brush)FindResource("SoftAccentBrush");
+            if (string.IsNullOrWhiteSpace(_profile.HealthUrl))
+            {
+                HealthLine.Text = "Health: —";
+                HealthLine.Foreground = (Brush)FindResource("SoftAccentBrush");
+            }
+            else
+            {
+                HealthLine.Text = FormatHealthLine(health);
+                HealthLine.Foreground = health.Ok
+                    ? (Brush)FindResource("StatusRunningBrush")
+                    : (Brush)FindResource("SoftAccentBrush");
+            }
 
             ModeLine.Text = anyService
                 ? "Mode: Windows service"
@@ -1204,6 +1257,7 @@ public partial class LaunchControlWindow : Window, IThemeHighlightHost
                 _child = started;
             _startedAt = DateTime.Now;
             AppendLog(started is null ? $"Started {file}" : $"Launched PID {started.Id}: {file}");
+            RequestDelayedStatusRefresh(250);
             return;
         }
 
