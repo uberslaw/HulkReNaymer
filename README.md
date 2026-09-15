@@ -65,22 +65,22 @@ That creates a shortcut in `%AppData%\Microsoft\Windows\SendTo`. Right-click fil
 
 HulkReNaymer plugs into [Master Launch Control](https://github.com/uberslaw/master-launch-control) as a **Generic** app. The product LC is a C# host that references the in-repo copy of `LaunchControl.Standard` at `launch-control/LaunchControl.Standard`. You do **not** need to clone Master Launch Control, set `MLC_ROOT`, or be online to build the LC.
 
-The LC is the same `LaunchControl.Standard` chrome as Switcheroo (header, Theme…, status + PID, Start / Stop / Restart, Refresh, Follow logs, extra-action groups, event pane). HulkReNaymer has no Windows service, so Start/Stop drive the desktop exe.
+The LC is the same `LaunchControl.Standard` chrome as Switcheroo (header, Theme…, status + PID, Run Release / Stop / Restart, Refresh, Follow logs, extra-action groups, event pane). HulkReNaymer has no Windows service, so Run Release / Stop drive the desktop exe.
 
 | Button | What it does |
 |--------|----------------|
-| **Start** | Run Release (`src\HulkReNaymer.App\bin\Release\net8.0-windows\HulkReNaymer.exe`) |
-| **Stop** / **Restart** | Stop that process (and any Debug exe the LC can see), then Start again |
+| **Run Release** | Primary green Start button, labeled Run Release (`src\HulkReNaymer.App\bin\Release\net8.0-windows\HulkReNaymer.exe`). Also listed in the Run extras. |
+| **Stop** / **Restart** | Stop that process (and any Debug exe the LC can see), then Run Release again |
 | **Rebuild Release** / **Rebuild Debug** | `dotnet build HulkReNaymer.sln -c …` (background) |
 | **Run Debug** | Starts the Debug exe |
 | **Open CLI** | Opens `cmd.exe` at the repo root with both bin folders on `PATH`, so you can run `HulkReNaymer.exe file1 file2`, `dotnet test`, etc. |
 
-After `Register-HulkReNaymer-MLC.ps1` (or **Add app** / **Scan folder…**), HulkReNaymer is a **Generic** card on that same MLC grid (Heimdall / Switcheroo / Serraview / LaptopBuildWall). MLC does not let a Generic app add extra card buttons — Rebuild / Run Debug / Open CLI stay on **Open Launch Control**, same as LaptopBuildWall’s rebuild extras. The card buttons are the stock ones:
+After `Register-HulkReNaymer-MLC.ps1` (or **Add app** / **Scan folder…**), HulkReNaymer is a **Generic** card on that same MLC grid (Heimdall / Switcheroo / Serraview / LaptopBuildWall). MLC does not let a Generic app add extra card buttons — Rebuild / Run Release / Run Debug / Open CLI stay on **Open Launch Control**, same as LaptopBuildWall’s rebuild extras. The card buttons are the stock ones:
 
 | MLC card | HulkReNaymer |
 |----------|----------------|
 | **Open** | Run Release (`installExe`) |
-| **Open Launch Control** | This LC (Start/Stop + Rebuild / Run Debug / Open CLI) |
+| **Open Launch Control** | This LC (Run Release / Stop + Rebuild / Run Debug / Open CLI) |
 | **Theme this LC…** | Theme the LC chrome (not MLC) |
 | **Stop LC** | Close the LC window only — does **not** quit HulkReNaymer |
 | **Start** / **Stop** / **Restart** | Run / kill / restart the Release exe (enabled after the first Rebuild Release) |

@@ -31,6 +31,7 @@ public partial class App : Application
             ShowBrowserButton = false,
             ShowStartStopButtons = true,
             ShowRestartButton = true,
+            StartButtonText = "Run Release",
             InstallRoot = root,
             LogPaths = [Path.Combine(roaming, "hulkrenaymer.log")],
             CrashLogPath = Path.Combine(local, "logs", "launch-control.log"),
@@ -44,7 +45,7 @@ public partial class App : Application
             StartupNotes =
             [
                 "Closing this window does not stop HulkReNaymer.",
-                "Start / Stop / Restart control the Release exe. Rebuild Debug / Run Debug / Open CLI are extra actions below.",
+                "Run Release / Stop / Restart control the Release exe. Rebuild / Run Release / Run Debug / Open CLI are extra actions below.",
                 "From Master Launch Control: Open Launch Control on the HulkReNaymer card (or run scripts\\Register-HulkReNaymer-MLC.ps1 once)."
             ],
             ProcessFallback = new ProcessFallbackSpec
@@ -61,6 +62,7 @@ public partial class App : Application
             [
                 new("Rebuild Release", w => LaunchActions.Rebuild(w, root, "Release"), "Build"),
                 new("Rebuild Debug", w => LaunchActions.Rebuild(w, root, "Debug"), "Build"),
+                new("Run Release", w => LaunchActions.RunApp(w, root, "Release"), "Run"),
                 new("Run Debug", w => LaunchActions.RunApp(w, root, "Debug"), "Run"),
                 new("Open CLI", w => LaunchActions.OpenCli(w, root), "Run")
             ]
