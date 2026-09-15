@@ -9,29 +9,38 @@ namespace HulkReNaymer.App;
 
 public partial class MainWindow : Window
 {
-    readonly MainViewModel _vm = new();
+    readonly MainViewModel _vm;
     bool _suppress;
     TextBox? _tokenTarget;
 
     public MainWindow()
     {
-        InitializeComponent();
-        DataContext = _vm;
-        _vm.RequestCollectRules += PullRules;
-        _vm.RulesChanged += PushRules;
-        RulesHost.AddHandler(TextBox.TextChangedEvent, new TextChangedEventHandler(OnRulesChanged));
-        RulesHost.AddHandler(CheckBox.CheckedEvent, new RoutedEventHandler(OnRulesChanged));
-        RulesHost.AddHandler(CheckBox.UncheckedEvent, new RoutedEventHandler(OnRulesChanged));
-        RulesHost.AddHandler(ComboBox.SelectionChangedEvent, new SelectionChangedEventHandler(OnRulesChanged));
-        AddHandler(GotKeyboardFocusEvent, new KeyboardFocusChangedEventHandler(OnTokenFocus), true);
-        Loaded += (_, _) =>
+        try
         {
-            BuildTokenChips();
-            var extras = Environment.GetCommandLineArgs()
-                .Skip(1)
-                .Where(arg => !string.IsNullOrWhiteSpace(arg) && !arg.StartsWith('-'));
-            _vm.OpenFromCommandLine(extras);
-        };
+            InitializeComponent();
+            _vm = new MainViewModel();
+            DataContext = _vm;
+            _vm.RequestCollectRules += PullRules;
+            _vm.RulesChanged += PushRules;
+            RulesHost.AddHandler(TextBox.TextChangedEvent, new TextChangedEventHandler(OnRulesChanged));
+            RulesHost.AddHandler(CheckBox.CheckedEvent, new RoutedEventHandler(OnRulesChanged));
+            RulesHost.AddHandler(CheckBox.UncheckedEvent, new RoutedEventHandler(OnRulesChanged));
+            RulesHost.AddHandler(ComboBox.SelectionChangedEvent, new SelectionChangedEventHandler(OnRulesChanged));
+            AddHandler(GotKeyboardFocusEvent, new KeyboardFocusChangedEventHandler(OnTokenFocus), true);
+            Loaded += (_, _) =>
+            {
+                BuildTokenChips();
+                var extras = Environment.GetCommandLineArgs()
+                    .Skip(1)
+                    .Where(arg => !string.IsNullOrWhiteSpace(arg) && !arg.StartsWith('-'));
+                _vm.OpenFromCommandLine(extras);
+            };
+        }
+        catch (Exception ex)
+        {
+            CrashLog.Write("MainWindow.ctor", ex);
+            throw;
+        }
     }
 
     void OnPreviewDragOver(object sender, DragEventArgs e)
