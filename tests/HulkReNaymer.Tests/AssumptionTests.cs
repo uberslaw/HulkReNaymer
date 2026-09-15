@@ -752,6 +752,80 @@ public class AssumptionTests
         };
 
     [Fact]
+    public void MainViewModel_PreviewBrushesUseSolidColorBrush_NotColorCastToBrush()
+    {
+        var vm = File.ReadAllText(FindRepoFile(Path.Combine("src", "HulkReNaymer.App", "ViewModels", "MainViewModel.cs")));
+        Assert.DoesNotContain("(Brush)ColorConverter.ConvertFromString", vm);
+        Assert.Contains("new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!)", vm);
+        Assert.Contains("static Brush HexBrush(string hex)", vm);
+    }
+
+    [Fact]
+    public void WpfApp_HooksCrashLogBeforeStartupUriWindow()
+    {
+        var app = File.ReadAllText(FindRepoFile(Path.Combine("src", "HulkReNaymer.App", "App.xaml.cs")));
+        Assert.Contains("DispatcherUnhandledException", app);
+        Assert.Contains("AppDomain.CurrentDomain.UnhandledException", app);
+        Assert.Contains("TaskScheduler.UnobservedTaskException", app);
+        Assert.Contains("CrashLog.Write", app);
+        Assert.Contains("CrashLog.AppLogPath", app);
+
+        var log = File.ReadAllText(FindRepoFile(Path.Combine("src", "HulkReNaymer.Core", "CrashLog.cs")));
+        Assert.Contains("app-crash.log", log);
+        Assert.Contains("LocalApplicationData", log);
+        Assert.Contains("HulkReNaymer", log);
+
+        var window = File.ReadAllText(FindRepoFile(Path.Combine("src", "HulkReNaymer.App", "MainWindow.xaml.cs")));
+        Assert.Contains("CrashLog.Write(\"MainWindow.ctor\"", window);
+        Assert.Contains("InitializeComponent();", window);
+        var init = window.IndexOf("InitializeComponent();", StringComparison.Ordinal);
+        var vm = window.IndexOf("new MainViewModel()", StringComparison.Ordinal);
+        Assert.True(init >= 0 && vm > init, "ViewModel must be constructed after InitializeComponent so a VM throw cannot skip XAML load.");
+    }
+
+    [Fact]
+    public void CrashLog_WritesSourceAndExceptionWithoutThrowing()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hulk-crash-" + Guid.NewGuid().ToString("N") + ".log");
+        try
+        {
+            CrashLog.Write("unit-test", new InvalidCastException("Specified cast is not valid."), path);
+            var text = File.ReadAllText(path);
+            Assert.Contains("unit-test", text);
+            Assert.Contains("InvalidCastException", text);
+            Assert.Contains("Specified cast is not valid.", text);
+            Assert.Contains("[FATAL]", text);
+        }
+        finally
+        {
+            try { File.Delete(path); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void CrashLog_DefaultPathIsLocalAppDataLogs()
+    {
+        var expected = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "HulkReNaymer",
+            "logs",
+            "app-crash.log");
+        Assert.Equal(expected, CrashLog.AppLogPath);
+        Assert.Equal("app-crash.log", CrashLog.AppFileName);
+    }
+
+    [Fact]
+    public void LaunchControl_AttachesHostLogBeforeFindingRoot()
+    {
+        var app = File.ReadAllText(FindRepoFile(Path.Combine("launch-control", "App.xaml.cs")));
+        var attach = app.IndexOf("LcHostLog.AttachUnhandled", StringComparison.Ordinal);
+        var find = app.IndexOf("LaunchActions.FindRoot", StringComparison.Ordinal);
+        Assert.True(attach >= 0 && find >= 0 && attach < find);
+        Assert.Contains("launch-control.log", app);
+        Assert.Contains("LcHostLog.Fatal(ex, \"OnStartup\"", app);
+    }
+
+    [Fact]
     public void PackagedBangersFont_InternalFamilyNameIsBangers()
     {
         var font = FindRepoFile(Path.Combine("src", "HulkReNaymer.App", "Assets", "Bangers-Regular.ttf"));

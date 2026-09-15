@@ -41,10 +41,10 @@ public sealed class PlaceItem
 
 public partial class MainViewModel : ObservableObject
 {
-    readonly Brush _ok = (Brush)ColorConverter.ConvertFromString("#7CFF4C")!;
-    readonly Brush _danger = (Brush)ColorConverter.ConvertFromString("#FF5D6C")!;
-    readonly Brush _skip = (Brush)ColorConverter.ConvertFromString("#6D8A70")!;
-    readonly Brush _ink = (Brush)ColorConverter.ConvertFromString("#E7FFE0")!;
+    readonly Brush _ok = HexBrush("#7CFF4C");
+    readonly Brush _danger = HexBrush("#FF5D6C");
+    readonly Brush _skip = HexBrush("#6D8A70");
+    readonly Brush _ink = HexBrush("#E7FFE0");
 
     [ObservableProperty] string currentPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
     [ObservableProperty] string stats = "Ready.";
@@ -379,5 +379,12 @@ public partial class MainViewModel : ObservableObject
             unit++;
         }
         return $"{value:0.#} {units[unit]}";
+    }
+
+    static Brush HexBrush(string hex)
+    {
+        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
+        if (brush.CanFreeze) brush.Freeze();
+        return brush;
     }
 }
