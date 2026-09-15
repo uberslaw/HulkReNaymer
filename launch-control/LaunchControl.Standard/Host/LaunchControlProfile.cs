@@ -725,6 +725,127 @@ public static class ProcessUtil
 
         return null;
     }
+
+    /// <summary>
+    /// Resolve a process image path without relying on <see cref="Process.MainModule"/>,
+    /// which throws on access-denied / 32-bit WMI / other-session processes.
+    /// </summary>
+    public static string? TryGetImagePath(Process process)
+    {
+        if (process is null) return null;
+        try
+        {
+            var fromModule = process.MainModule?.FileName;
+            if (!string.IsNullOrWhiteSpace(fromModule))
+                return fromModule;
+        }
+        catch
+        {
+            /* MainModule can throw */
+        }
+
+        return TryGetImagePath(process.Id);
+    }
+
+    public static string? TryGetImagePath(int pid)
+    {
+        if (pid <= 0) return null;
+        var viaApi = QueryFullProcessImageName(pid);
+        if (!string.IsNullOrWhiteSpace(viaApi))
+            return viaApi;
+        return TryGetImagePathWmic(pid);
+    }
+
+    public static bool SamePath(string? a, string? b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+            return false;
+        try
+        {
+            var left = Path.GetFullPath(a.Trim().Trim('"'));
+            var right = Path.GetFullPath(b.Trim().Trim('"'));
+            return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private const uint ProcessQueryLimitedInformation = 0x1000;
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint access, bool inherit, int processId);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern bool QueryFullProcessImageName(IntPtr handle, uint flags, System.Text.StringBuilder name, ref uint size);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    private static string? QueryFullProcessImageName(int pid)
+    {
+        var handle = OpenProcess(ProcessQueryLimitedInformation, false, pid);
+        if (handle == IntPtr.Zero)
+            return null;
+        try
+        {
+            var sb = new System.Text.StringBuilder(1024);
+            var size = (uint)sb.Capacity;
+            if (!QueryFullProcessImageName(handle, 0, sb, ref size))
+                return null;
+            var path = sb.ToString();
+            return string.IsNullOrWhiteSpace(path) ? null : path;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            CloseHandle(handle);
+        }
+    }
+
+    private static string? TryGetImagePathWmic(int pid)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "wmic",
+                Arguments = $"process where ProcessId={pid} get ExecutablePath /value",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            using var proc = Process.Start(psi);
+            if (proc is null) return null;
+            var output = proc.StandardOutput.ReadToEnd();
+            if (!proc.WaitForExit(2000))
+            {
+                try { proc.Kill(entireProcessTree: true); } catch { /* ignore */ }
+                return null;
+            }
+            foreach (var raw in output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+            {
+                var line = raw.Trim();
+                const string prefix = "ExecutablePath=";
+                if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var path = line[prefix.Length..].Trim().Trim('"');
+                    if (!string.IsNullOrWhiteSpace(path))
+                        return path;
+                }
+            }
+        }
+        catch
+        {
+            /* wmic is optional */
+        }
+        return null;
+    }
 }
 
 public static class LaunchControlApp
