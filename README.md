@@ -32,13 +32,13 @@ Rules reset after a successful rename so the same prefix is not applied twice.
 2. Regular expression (`$1` groups work)
 3. Name / extension
 4. Find / replace
-5. Case
+5. Case (optional strip accents: é → e)
 6. Remove
-7. Move / copy characters
+7. Move / copy characters, or swap the two sides of a separator
 8. Add prefix, insert, suffix
 9. Parent folder
 10. Date (created / modified / accessed / now / photo EXIF)
-11. Numbering
+11. Numbering, or restyle the last number already in the name
 12. JavaScript (`newName = name + '_' + index`)
 13. Filters
 14. Copy / move to another folder
@@ -47,9 +47,15 @@ Rules reset after a successful rename so the same prefix is not applied twice.
 
 Tokens work in prefix, suffix, insert, fixed names, find/replace, regex replace, and the copy/move destination folder:
 
-`{name}` `{ext}` `{folder}` `{n}` `{n:3}` `{date}` `{date:exif}` `{yyyy}` `{mm}` `{dd}` `{exif.date}` `{id3.artist}` `{id3.album}` `{id3.title}` `{size}`
+`{name}` `{ext}` `{folder}` `{n}` `{n:3}` `{date}` `{date:exif}` `{yyyy}` `{mm}` `{dd}` `{exif.date}` `{exif.make}` `{exif.model}` `{exif.camera}` `{id3.artist}` `{id3.album}` `{id3.title}` `{size}` `{git.branch}` `{hash:8}` `{video.date}` `{video.duration}`
+
+`{git.branch}` is the current branch when the file lives in a git repo (empty in detached HEAD or when git is missing). `{hash}` / `{hash:8}` is the SHA-256 of that file's bytes (first N lowercase hex characters; empty for folders). `{video.date}` / `{video.duration}` come from TagLib when the file is a readable video. Set `HULKRENAYMER_EXIFTOOL` to an `exiftool` binary to merge extra tags; a copy on `PATH` is **not** auto-run (one spawn per file). ExifTool is never required.
+
+The WPF token palette inserts chips into the focused token box (prefix, suffix, insert, fixed name, replace, regex replace, destination).
 
 PowerRename-style aliases also work: `$YYYY` `$YY` `$MM` `$DD` `$mm` (minutes) `${}` `${n:3}` `${padding=3}`. Regex `$1` / `$2` groups are left alone.
+
+Presets include **kebab-case** and **slug** (safe URL slug: lowercase, strip punctuation/accents, hyphenate). The Case panel can apply the same modes.
 
 ## Send To (Explorer)
 
@@ -60,6 +66,26 @@ The installer can add **HulkReNaymer** to the Explorer **Send to** menu. For a p
 ```
 
 That creates a shortcut in `%AppData%\Microsoft\Windows\SendTo`. Right-click files → Send to → HulkReNaymer. Use `-Remove` to delete the shortcut.
+
+An optional **Explorer context menu** verb (`Rename with HulkReNaymer`) can be added from the installer (unchecked by default) or, for a portable build, with a per-user HKCU verb (no startup/Run-key persistence):
+
+```powershell
+./scripts/install-context-menu.ps1 -ExePath C:\path\to\HulkReNaymer.exe
+./scripts/install-context-menu.ps1 -Remove
+```
+
+## CLI
+
+`HulkReNaymer.Cli` is a `net8.0` console app that reuses `RenameEngine`, `ApplyService`, and `Scanner` (no WPF). From the repo root (including a Launch Control **Open CLI** prompt):
+
+```powershell
+dotnet run --project src/HulkReNaymer.Cli -- preview .\photos --preset kebab-case
+dotnet run --project src/HulkReNaymer.Cli -- apply .\docs --find " " --replace _ --collision skip
+dotnet run --project src/HulkReNaymer.Cli -- apply file1.txt file2.txt --prefix "{git.branch}_{hash:8}_"
+dotnet run --project src/HulkReNaymer.Cli -- undo
+```
+
+After `dotnet build src/HulkReNaymer.Cli`, the exe is `HulkReNaymer.Cli.exe` (Windows) / `HulkReNaymer.Cli` under `src/HulkReNaymer.Cli/bin/<config>/net8.0/`. Default command is **preview** (dry-run). Use `apply` / `--apply` to commit. Flags: `--recurse`, `--wildcard`, `--folders`, `--find` / `--replace`, `--prefix`, `--suffix`, `--case`, `--preset`, `--favorite`, `--collision fail|skip|append`, `--from-list`, `--regex`. Tracked files inside a git repo are renamed with `git mv` (falls back to `File.Move`); undo still works.
 
 ## Launch Control (Master Launch Control)
 
@@ -105,6 +131,7 @@ Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). To r
 dotnet restore
 dotnet test
 dotnet run --project src/HulkReNaymer.App
+dotnet run --project src/HulkReNaymer.Cli -- --help
 ```
 
 Launch Control is not part of `HulkReNaymer.sln`. To build it from this repo (no Master Launch Control clone):
@@ -127,12 +154,14 @@ Tag a version (`v1.0.0`) and push it to trigger the release workflow.
 
 - `src/HulkReNaymer.Core` — rename engine, scan, EXIF/ID3, undo (net8.0, tested on any OS)
 - `src/HulkReNaymer.App` — WPF UI (`net8.0-windows`)
-- `tests/HulkReNaymer.Tests` — engine and rename/undo tests
+- `src/HulkReNaymer.Cli` — console preview/apply (`net8.0`, `HulkReNaymer.Cli`)
+- `tests/HulkReNaymer.Tests` — engine, CLI, git-mv, and rename/undo tests
 - `scripts/build-windows.ps1` — release publish + zip + installer
 - `scripts/install-sendto.ps1` — add or remove the Explorer Send To shortcut
+- `scripts/install-context-menu.ps1` — optional per-user Explorer verb (files + folders)
 - `scripts/HulkReNaymer-LaunchControl.cmd` — Master Launch Control entrypoint
 - `scripts/Register-HulkReNaymer-MLC.ps1` — add this repo to MLC `apps.json`
-- `launch-control\` — C# LC host (Rebuild / Run / Open CLI)
+- `launch-control\` — C# LC host (Rebuild / Run Release / Open CLI)
 - `launch-control/LaunchControl.Standard` — vendored theme-host library (no MLC clone required)
 - `setup/HulkReNaymer.iss` — Inno Setup script
 - `docs/Bulk_Rename_Utility_Guide.md` — the capability guide this app implements

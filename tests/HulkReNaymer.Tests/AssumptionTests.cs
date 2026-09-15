@@ -382,6 +382,376 @@ public class AssumptionTests
     }
 
     [Fact]
+    public void HashToken_IsSha256OfFileBytes_EmptyDirAndMissingAreBlank()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hulk-hash-assumptions-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var empty = Path.Combine(root, "empty.bin");
+        var hello = Path.Combine(root, "hello.txt");
+        var missing = Path.Combine(root, "gone.txt");
+        File.WriteAllBytes(empty, []);
+        File.WriteAllText(hello, "hello");
+        try
+        {
+            var emptyHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData([])).ToLowerInvariant();
+            Assert.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", emptyHash);
+            var emptyItem = MetadataReader.Describe(empty);
+            Assert.Equal(emptyHash[..8], Tokens.Expand("{hash}", emptyItem, new Rules(), 1));
+            Assert.Equal(emptyHash[..8], Tokens.Expand("{hash:8}", emptyItem, new Rules(), 1));
+            Assert.Equal(emptyHash, Tokens.Expand("{hash:64}", emptyItem, new Rules(), 1));
+            Assert.Equal(emptyHash[..1], Tokens.Expand("{hash:0}", emptyItem, new Rules(), 1));
+
+            var helloItem = MetadataReader.Describe(hello);
+            var helloHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.ASCII.GetBytes("hello"))).ToLowerInvariant();
+            Assert.Equal(helloHash[..8], Tokens.Expand("{hash:8}", helloItem, new Rules(), 1));
+            Assert.NotEqual(emptyHash[..8], helloHash[..8]);
+
+            var folder = MetadataReader.Describe(root);
+            Assert.True(folder.IsDir);
+            Assert.Equal("", Tokens.Expand("{hash:8}", folder, new Rules(), 1));
+
+            var gone = new FileItem
+            {
+                Path = missing,
+                Name = "gone.txt",
+                Stem = "gone",
+                Ext = ".txt",
+                Folder = Path.GetFileName(root),
+                Parent = root
+            };
+            Assert.Equal("", Tokens.Expand("{hash:8}", gone, new Rules(), 1));
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void GitBranch_EmptyWhenDetachedMissingGitOrOutsideRepo()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hulk-branch-assumptions-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, "notes.txt");
+        File.WriteAllText(path, "x");
+        var oldPath = Environment.GetEnvironmentVariable("PATH");
+        try
+        {
+            GitTestRepo.Init(root, "feat/foo");
+            var item = MetadataReader.Describe(path);
+            Assert.Equal("feat/foo", GitOps.CurrentBranch(path));
+            Assert.Equal("feat_foo_notes.txt",
+                RenameEngine.ApplyRules(item, new Rules { AddEnabled = true, Prefix = "{git.branch}_" }, 1).NewName);
+
+            GitTestRepo.Run(root, "checkout", "--detach", "HEAD");
+            Assert.Equal("", GitOps.CurrentBranch(path));
+            Assert.Equal("", Tokens.Expand("{git.branch}", MetadataReader.Describe(path), new Rules(), 1));
+
+            Environment.SetEnvironmentVariable("PATH", "");
+            Assert.Equal("", GitOps.CurrentBranch(path));
+            Assert.False(GitOps.TryMove(path, Path.Combine(root, "moved.txt")));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", oldPath);
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void GitWorktree_DotGitFile_IsARepoRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hulk-wt-main-" + Guid.NewGuid().ToString("N"));
+        var work = Path.Combine(Path.GetTempPath(), "hulk-wt-work-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "notes.txt"), "x");
+        try
+        {
+            GitTestRepo.Init(root, "main");
+            GitTestRepo.Run(root, "worktree", "add", "-b", "wt-lab", work);
+            Assert.True(File.Exists(Path.Combine(work, ".git")));
+            Assert.False(Directory.Exists(Path.Combine(work, ".git")));
+            var tracked = Path.Combine(work, "notes.txt");
+            Assert.Equal(Path.GetFullPath(work), Path.GetFullPath(GitOps.FindRepoRoot(tracked)!));
+            Assert.Equal("wt-lab", GitOps.CurrentBranch(tracked));
+        }
+        finally
+        {
+            try { GitTestRepo.Run(root, "worktree", "remove", "--force", work); } catch { /* ignore */ }
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
+            try { Directory.Delete(work, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void GitMv_FallsBackWhenNotARepo_OrGitMissing_AndUndoWorks()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hulk-nogit-move-" + Guid.NewGuid().ToString("N"));
+        var data = Path.Combine(root, "data");
+        Directory.CreateDirectory(root);
+        Environment.SetEnvironmentVariable("HULKRENAYMER_DATA", data);
+        var path = Path.Combine(root, "plain.txt");
+        File.WriteAllText(path, "payload");
+        try
+        {
+            Assert.Null(GitOps.FindRepoRoot(path));
+            Assert.False(GitOps.IsTracked(path));
+            Assert.False(GitOps.TryMove(path, Path.Combine(root, "renamed.txt")));
+
+            var item = MetadataReader.Describe(path);
+            var rules = new Rules { AddEnabled = true, Prefix = "X_" };
+            var result = ApplyService.Commit(RenameEngine.BuildPreview([item], rules), rules);
+            Assert.Equal(1, result.Renamed);
+            Assert.True(File.Exists(Path.Combine(root, "X_plain.txt")));
+            Assert.Equal("payload", File.ReadAllText(Path.Combine(root, "X_plain.txt")));
+            Assert.Equal(1, ApplyService.UndoLast().Renamed);
+            Assert.True(File.Exists(path));
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void GitMv_DifferentRepo_DoesNotUseGitMv()
+    {
+        var a = Path.Combine(Path.GetTempPath(), "hulk-repo-a-" + Guid.NewGuid().ToString("N"));
+        var b = Path.Combine(Path.GetTempPath(), "hulk-repo-b-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(a);
+        Directory.CreateDirectory(b);
+        File.WriteAllText(Path.Combine(a, "a.txt"), "A");
+        File.WriteAllText(Path.Combine(b, "keep.txt"), "B");
+        try
+        {
+            GitTestRepo.Init(a, "main");
+            GitTestRepo.Init(b, "main");
+            Assert.False(GitOps.TryMove(Path.Combine(a, "a.txt"), Path.Combine(b, "a.txt")));
+            Assert.True(File.Exists(Path.Combine(a, "a.txt")));
+        }
+        finally
+        {
+            try { Directory.Delete(a, true); } catch { /* ignore */ }
+            try { Directory.Delete(b, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void KebabKeepsPunctuation_SlugStripsUnicodePunctuation()
+    {
+        Assert.Equal("hello!!!-world.txt",
+            RenameEngine.ApplyRules(Item("Hello!!!World.txt"), new Rules { CaseMode = "kebab" }, 1).NewName);
+        Assert.Equal("hello-world.txt",
+            RenameEngine.ApplyRules(Item("Hello!!!World.txt"), new Rules { CaseMode = "slug" }, 1).NewName);
+        Assert.Equal("日本語-test.txt",
+            RenameEngine.ApplyRules(Item("日本語 Test.txt"), new Rules { CaseMode = "kebab" }, 1).NewName);
+        Assert.Equal("日本語-test.txt",
+            RenameEngine.ApplyRules(Item("日本語 Test.txt"), new Rules { CaseMode = "slug" }, 1).NewName);
+        Assert.Equal("cafe-au-lait.txt",
+            RenameEngine.ApplyRules(Item("Café au lait!.txt"), new Rules { CaseMode = "slug" }, 1).NewName);
+        Assert.Equal("café-au-lait!.txt",
+            RenameEngine.ApplyRules(Item("Café au lait!.txt"), new Rules { CaseMode = "kebab" }, 1).NewName);
+    }
+
+    [Fact]
+    public void TokenPicker_TargetsOnlyTokenBoxes_NotGridOrFilters()
+    {
+        var expected = new[]
+        {
+            "RegexReplace", "NameFixed", "ExtFixed", "ReplaceWithBox",
+            "PrefixBox", "SuffixBox", "InsertBox", "DestDirBox"
+        };
+        Assert.Equal(expected.OrderBy(s => s), TokenCatalog.TargetBoxNames.OrderBy(s => s));
+        foreach (var notATarget in new[] { "PathBox", "WildcardBox", "FindBox", "JsBox", "MappingBox", "DateFormatBox", "RegexPattern" })
+            Assert.DoesNotContain(notATarget, TokenCatalog.TargetBoxNames);
+
+        var xaml = File.ReadAllText(FindRepoFile(Path.Combine("src", "HulkReNaymer.App", "MainWindow.xaml")));
+        Assert.Contains("CanUserAddRows=\"False\"", xaml);
+        Assert.Contains("IsReadOnly=\"True\"", xaml);
+        var code = File.ReadAllText(FindRepoFile(Path.Combine("src", "HulkReNaymer.App", "MainWindow.xaml.cs")));
+        Assert.Contains("TokenCatalog.TargetBoxNames.Contains(box.Name)", code);
+    }
+
+    [Fact]
+    public void ExifTool_IsOptInViaEnv_AndNormalizesNumericDuration()
+    {
+        ExifToolReader.ResetCache();
+        var previous = Environment.GetEnvironmentVariable(ExifToolReader.PathEnv);
+        var oldPath = Environment.GetEnvironmentVariable("PATH");
+        var root = Path.Combine(Path.GetTempPath(), "hulk-exiftool-assumptions-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            Environment.SetEnvironmentVariable(ExifToolReader.PathEnv, null);
+            ExifToolReader.ResetCache();
+            Assert.False(ExifToolReader.ExplicitlyConfigured);
+            Assert.False(ExifToolReader.IsAvailable);
+
+            if (!OperatingSystem.IsWindows())
+            {
+                var bin = Path.Combine(root, "bin");
+                Directory.CreateDirectory(bin);
+                var marker = Path.Combine(root, "ran.txt");
+                var fake = Path.Combine(bin, "exiftool");
+                File.WriteAllText(fake, "#!/bin/sh\necho ran > \"" + marker.Replace("\"", "") + "\"\nexit 0\n");
+                File.SetUnixFileMode(fake, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                Environment.SetEnvironmentVariable("PATH", bin + Path.PathSeparator + oldPath);
+                ExifToolReader.ResetCache();
+                var junk = Path.Combine(root, "clip.mp4");
+                File.WriteAllText(junk, "not a video");
+                var described = MetadataReader.Describe(junk);
+                Assert.Equal("", Tokens.Expand("{video.duration}", described, new Rules(), 1));
+                Assert.False(File.Exists(marker), "exiftool on PATH must not run unless HULKRENAYMER_EXIFTOOL is set");
+            }
+
+            Assert.Equal("01-05", ExifToolReader.NormalizeDuration("65.5"));
+            Assert.Equal("01-02-03", ExifToolReader.NormalizeDuration("3723"));
+            Assert.Equal("01-05", ExifToolReader.NormalizeDuration("0:01:05"));
+            Assert.Equal("01-05", ExifToolReader.ParseJson("""[{"Duration": 65.5}]""")["video.duration"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ExifToolReader.PathEnv, previous);
+            Environment.SetEnvironmentVariable("PATH", oldPath);
+            ExifToolReader.ResetCache();
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void TagLib_UnsupportedContainer_DoesNotAbortDescribe()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hulk-taglib-junk-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        foreach (var name in new[] { "clip.mp4", "clip.mkv", "clip.webm", "clip.avi", "song.mp3" })
+            File.WriteAllText(Path.Combine(root, name), "definitely not media");
+        try
+        {
+            var (items, _) = Scanner.Scan(root);
+            Assert.Equal(5, items.Count);
+            Assert.All(items, item =>
+            {
+                Assert.False(item.Props.ContainsKey("video.duration"));
+                Assert.Empty(item.Id3);
+            });
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void CollisionAppend_FirstKeepsName_SkipDropsAllClashers()
+    {
+        var rows = RenameEngine.BuildPreview(
+            [Item("a.txt"), Item("b.txt")],
+            new Rules { NameEnabled = true, NameMode = "fixed", NameFixed = "same", CollisionPolicy = "append" });
+        Assert.Equal(new[] { "same.txt", "same_001.txt" }, rows.Select(r => r.NewName));
+        Assert.Equal("", rows[0].Warning);
+
+        var skipped = RenameEngine.BuildPreview(
+            [Item("a.txt"), Item("b.txt")],
+            new Rules { NameEnabled = true, NameMode = "fixed", NameFixed = "same", CollisionPolicy = "skip" });
+        Assert.All(skipped, r => Assert.Equal("skipped", r.Status));
+    }
+
+    [Fact]
+    public void CliApply_CommitsWithoutPrompt_WpfSmashAsks()
+    {
+        var cli = File.ReadAllText(FindRepoFile(Path.Combine("src", "HulkReNaymer.Cli", "CliApp.cs")));
+        Assert.Contains("ApplyService.Commit(rows, rules)", cli);
+        Assert.DoesNotContain("Console.Read", cli);
+        var vm = File.ReadAllText(FindRepoFile(Path.Combine("src", "HulkReNaymer.App", "ViewModels", "MainViewModel.cs")));
+        Assert.Contains("Commit rename?", vm);
+        Assert.Contains("MessageBox.Show", vm);
+    }
+
+    [Fact]
+    public void Cli_ScansEveryDirectoryArgument_AndSupportsDashedFilenames()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hulk-cli-dirs-" + Guid.NewGuid().ToString("N"));
+        var a = Path.Combine(root, "photos");
+        var b = Path.Combine(root, "docs");
+        Directory.CreateDirectory(a);
+        Directory.CreateDirectory(b);
+        File.WriteAllText(Path.Combine(a, "one.txt"), "1");
+        File.WriteAllText(Path.Combine(b, "two.txt"), "2");
+        File.WriteAllText(Path.Combine(root, "-dashed.txt"), "d");
+        try
+        {
+            var stdout = new System.IO.StringWriter();
+            var code = HulkReNaymer.Cli.CliApp.Run(["preview", a, b, "--prefix", "X_"], stdout, new System.IO.StringWriter());
+            Assert.Equal(0, code);
+            var text = stdout.ToString();
+            Assert.Contains("one.txt", text);
+            Assert.Contains("two.txt", text);
+            Assert.Contains("X_one.txt", text);
+            Assert.Contains("X_two.txt", text);
+
+            var dashed = new System.IO.StringWriter();
+            Assert.Equal(0, HulkReNaymer.Cli.CliApp.Run(
+                ["preview", "--prefix", "Z_", "--", Path.Combine(root, "-dashed.txt")],
+                dashed, new System.IO.StringWriter()));
+            Assert.Contains("Z_-dashed.txt", dashed.ToString());
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void ExplorerVerb_InstallerIsHkcrQuoted_ScriptIsHkcu()
+    {
+        var iss = File.ReadAllText(FindRepoFile(Path.Combine("setup", "HulkReNaymer.iss")));
+        var script = File.ReadAllText(FindRepoFile(Path.Combine("scripts", "install-context-menu.ps1")));
+        Assert.Contains("Root: HKCR;", iss);
+        Assert.Contains("PrivilegesRequired=admin", iss);
+        Assert.Contains("\"\"%1\"\"", iss);
+        Assert.Contains("\"\"%V\"\"", iss);
+        Assert.Contains("HKCU:\\Software\\Classes", script);
+        Assert.DoesNotContain("HKLM:", script);
+        Assert.Contains("Directory\\Background", script);
+    }
+
+    [Fact]
+    public void RegexGroupsSurviveDateAliases_AndTokensExpandInDest()
+    {
+        var item = Item("Invoice 99.pdf");
+        item = new FileItem
+        {
+            Path = item.Path,
+            Name = item.Name,
+            Stem = item.Stem,
+            Ext = item.Ext,
+            Folder = item.Folder,
+            Parent = item.Parent,
+            Modified = new DateTime(2026, 9, 14, 9, 0, 0)
+        };
+        Assert.Equal("Invoice_2026.pdf",
+            RenameEngine.ApplyRules(item, new Rules
+            {
+                RegexEnabled = true,
+                RegexPattern = @"^(Invoice) (\d+)$",
+                RegexReplace = "$1_$YYYY"
+            }, 1).NewName);
+        var rows = RenameEngine.BuildPreview([item], new Rules { Operation = "copy", DestDir = "{yyyy}-{mm}" });
+        Assert.EndsWith(Path.Combine("2026-09", "Invoice 99.pdf"), rows[0].NewPath);
+    }
+
+    static FileItem Item(string name, string folder = "project") =>
+        new()
+        {
+            Path = $"/tmp/{folder}/{name}",
+            Name = name,
+            Stem = Names.SplitName(name).Stem,
+            Ext = Names.SplitName(name).Ext,
+            Folder = folder,
+            Parent = $"/tmp/{folder}"
+        };
+
+    [Fact]
     public void PackagedBangersFont_InternalFamilyNameIsBangers()
     {
         var font = FindRepoFile(Path.Combine("src", "HulkReNaymer.App", "Assets", "Bangers-Regular.ttf"));

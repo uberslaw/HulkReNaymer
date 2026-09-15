@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace HulkReNaymer;
@@ -58,9 +59,18 @@ public static class Tokens
             ["exif.date"] = item.Exif.GetValueOrDefault("date", ""),
             ["exif.width"] = item.Exif.GetValueOrDefault("width", ""),
             ["exif.height"] = item.Exif.GetValueOrDefault("height", ""),
+            ["exif.make"] = item.Exif.GetValueOrDefault("make", ""),
+            ["exif.model"] = item.Exif.GetValueOrDefault("model", ""),
+            ["exif.camera"] = CameraName(item.Exif),
+            ["exif.iso"] = item.Exif.GetValueOrDefault("iso", ""),
+            ["exif.fnumber"] = item.Exif.GetValueOrDefault("fnumber", ""),
             ["id3.artist"] = item.Id3.GetValueOrDefault("artist", ""),
             ["id3.album"] = item.Id3.GetValueOrDefault("album", ""),
-            ["id3.title"] = item.Id3.GetValueOrDefault("title", "")
+            ["id3.title"] = item.Id3.GetValueOrDefault("title", ""),
+            ["video.duration"] = item.Props.GetValueOrDefault("video.duration", ""),
+            ["video.date"] = item.Props.GetValueOrDefault("video.date", ""),
+            ["video.width"] = item.Props.GetValueOrDefault("video.width", ""),
+            ["video.height"] = item.Props.GetValueOrDefault("video.height", "")
         };
 
         return BraceRe.Replace(template, match =>
@@ -73,6 +83,15 @@ public static class Tokens
             }
             if (key.StartsWith("date:", StringComparison.Ordinal))
                 return FormatDate(ItemDate(item, key[5..]), rules.DateFormat);
+            if (key.Equals("git.branch", StringComparison.OrdinalIgnoreCase))
+                return GitOps.CurrentBranch(item.Path);
+            if (key.Equals("hash", StringComparison.OrdinalIgnoreCase))
+                return ContentHash(item, 8);
+            if (key.StartsWith("hash:", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!int.TryParse(key[5..], out var width)) width = 8;
+                return ContentHash(item, width);
+            }
             return values.TryGetValue(key, out var value) ? value : match.Value;
         });
     }
@@ -134,5 +153,36 @@ public static class Tokens
         var converted = Names.ConvertDateFormat(format);
         try { return value.Value.ToString(converted, CultureInfo.InvariantCulture); }
         catch { return value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture); }
+    }
+
+    static string CameraName(Dictionary<string, string> exif)
+    {
+        if (exif.TryGetValue("camera", out var camera) && !string.IsNullOrWhiteSpace(camera))
+            return camera;
+        var make = exif.GetValueOrDefault("make", "").Trim();
+        var model = exif.GetValueOrDefault("model", "").Trim();
+        if (make.Length == 0) return model;
+        if (model.Length == 0) return make;
+        if (model.StartsWith(make, StringComparison.OrdinalIgnoreCase))
+            return model;
+        return (make + " " + model).Trim();
+    }
+
+    static string ContentHash(FileItem item, int width)
+    {
+        width = Math.Clamp(width, 1, 64);
+        if (item.IsDir) return "";
+        try
+        {
+            if (!File.Exists(item.Path)) return "";
+            using var stream = File.OpenRead(item.Path);
+            var hash = SHA256.HashData(stream);
+            var hex = Convert.ToHexString(hash).ToLowerInvariant();
+            return hex[..Math.Min(width, hex.Length)];
+        }
+        catch
+        {
+            return "";
+        }
     }
 }
