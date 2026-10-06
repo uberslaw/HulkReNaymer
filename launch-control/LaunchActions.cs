@@ -33,7 +33,7 @@ static class LaunchActions
 
     public static IReadOnlyList<int> FindRunningPids(string root)
     {
-        var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        var targets = new[]
         {
             ExePath(root, "Release"),
             ExePath(root, "Debug")
@@ -43,13 +43,20 @@ static class LaunchActions
         {
             try
             {
-                var path = proc.MainModule?.FileName;
-                if (!string.IsNullOrWhiteSpace(path) && targets.Contains(path))
+                var path = ProcessUtil.TryGetImagePath(proc);
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    // Process name is already HulkReNaymer; path lookup can fail
+                    // (access denied / WOW64). Still count it so the rail shows PID.
+                    pids.Add(proc.Id);
+                    continue;
+                }
+                if (targets.Any(t => ProcessUtil.SamePath(path, t)))
                     pids.Add(proc.Id);
             }
             catch
             {
-                /* MainModule can throw for other sessions / bitness */
+                /* image-path lookup can fail for other sessions / bitness */
             }
             finally
             {
@@ -101,6 +108,8 @@ static class LaunchActions
             ErrorDialog = false
         });
         window.AppendLog($"Started {configuration}: {exe}", "OK");
+        _ = window.RequestStatusRefreshAsync();
+        window.RequestDelayedStatusRefresh(250);
     }
 
     public static void OpenCli(LaunchControlWindow window, string root)
